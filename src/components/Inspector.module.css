@@ -1,0 +1,116 @@
+.panel {
+  width: var(--inspector-width);
+  background: var(--color-light);
+  border-left: 1px solid var(--color-light-gray);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.empty {
+  padding: 24px 16px;
+  color: var(--color-mid-gray);
+  font-size: 13px;
+  text-align: center;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--color-light-gray);
+  position: sticky;
+  top: 0;
+  background: var(--color-light);
+  z-index: 1;
+}
+
+.heading {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.fields {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.label {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-mid-gray);
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--color-light);
+  border: 1px solid var(--color-light-gray);
+  border-radius: var(--radius-sm);
+  color: var(--color-dark);
+  transition: border-color 0.12s;
+  outline: none;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--color-orange);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23b0aea5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.checkRow {
+  display: flex;
+  gap: 16px;
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-dark);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkLabel input[type='checkbox'] {
+  accent-color: var(--color-orange);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}

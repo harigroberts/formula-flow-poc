@@ -1,0 +1,53 @@
+.canvas {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+}
+
+.canvas :global(.react-flow__background) {
+  background: var(--color-light);
+}
+
+.canvas :global(.react-flow__controls) {
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--color-light-gray);
+}
+
+.canvas :global(.react-flow__controls-button) {
+  background: var(--color-light);
+  border: none;
+  border-bottom: 1px solid var(--color-light-gray);
+  color: var(--color-dark);
+}
+
+.canvas :global(.react-flow__controls-button:hover) {
+  background: var(--color-light-gray);
+}
+
+.canvas :global(.react-flow__minimap) {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--color-light-gray);
+}
+
+.canvas :global(.react-flow__edge-path) {
+  stroke: var(--color-mid-gray);
+  stroke-width: 1.5;
+}
+
+.canvas :global(.react-flow__edge.selected .react-flow__edge-path) {
+  stroke: var(--color-orange);
+}
+
+.canvas :global(.react-flow__handle) {
+  background: var(--color-mid-gray);
+  border: 2px solid var(--color-light);
+  width: 10px;
+  height: 10px;
+}
+
+.canvas :global(.react-flow__handle:hover) {
+  background: var(--color-orange);
+}

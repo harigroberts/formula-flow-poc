@@ -1,0 +1,46 @@
+.nav {
+  height: var(--breadcrumb-height);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: var(--color-light);
+  border-bottom: 1px solid var(--color-light-gray);
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.crumbGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sep {
+  color: var(--color-mid-gray);
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+.crumb {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-mid-gray);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: color 0.1s, background 0.1s;
+}
+
+.crumb:not(.active):hover {
+  color: var(--color-dark);
+  background: var(--color-light-gray);
+}
+
+.active {
+  color: var(--color-dark);
+  cursor: default;
+  pointer-events: none;
+}

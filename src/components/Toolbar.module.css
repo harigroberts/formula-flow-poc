@@ -1,0 +1,68 @@
+.toolbar {
+  height: var(--toolbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--color-dark);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  font-size: 20px;
+  color: var(--color-orange);
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-light);
+  letter-spacing: -0.01em;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions :global(.btn-ghost) {
+  color: var(--color-mid-gray);
+}
+
+.actions :global(.btn-ghost:hover) {
+  color: var(--color-light);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.actions :global(.btn-secondary) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-light);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.actions :global(.btn-secondary:hover) {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.error {
+  position: absolute;
+  bottom: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #e63946;
+  color: white;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  z-index: 10;
+}
