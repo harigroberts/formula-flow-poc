@@ -39,6 +39,9 @@ WorkflowDoc {
 **Node types:**
 - `task` — a unit of work; carries rich metadata (owner, time, tools, pain points, etc.)
 - `flow` — a reference to a child `Flow`; double-click to drill in
+- `decision` — a conditional gateway (diamond); outgoing edges carry `sourceHandle`/`label`/`data.branch` = `"yes"` or `"no"`
+- `start` — pipeline entry point or sub-flow entry (doubles as entry node inside a child flow)
+- `end` — pipeline exit point or sub-flow exit (doubles as exit node inside a child flow)
 
 Navigation is breadcrumb-based: entering a flow pushes it onto the breadcrumb stack; clicking a parent crumb pops back.
 
@@ -46,7 +49,7 @@ Navigation is breadcrumb-based: entering a flow pushes it onto the breadcrumb st
 
 ```
 src/
-  types.ts              — all TypeScript types (WorkflowDoc, TaskData, FlowRefData, AnalysisResult)
+  types.ts              — all TypeScript types (WorkflowDoc, TaskData, FlowRefData, DecisionData, TerminalData, WFEdgeData, AnalysisResult)
   theme.css             — Anthropic brand CSS custom properties + base styles
   store/
     workflowStore.ts    — Zustand store; single source of truth for the whole doc
@@ -56,7 +59,7 @@ src/
     api.ts              — analyzeFlow() → POST /api/analyze
   components/
     Canvas.tsx          — ReactFlow canvas, drag-drop, double-click drill-in
-    Sidebar.tsx         — drag palette (Task, Sub-flow)
+    Sidebar.tsx         — drag palette (Task, Sub-flow, Decision, Start, End)
     Inspector.tsx       — edit all metadata of the selected node
     Breadcrumbs.tsx     — flow navigation bar
     Toolbar.tsx         — export/import buttons + Analyse trigger
@@ -64,6 +67,10 @@ src/
     nodes/
       TaskNode.tsx       — task card node
       FlowNode.tsx       — sub-flow reference node
+      DecisionNode.tsx   — diamond gateway node (Yes/No branches)
+      StartNode.tsx      — pipeline/flow entry terminator
+      EndNode.tsx        — pipeline/flow exit terminator
+      TerminalNode.module.css — shared styles for Start and End nodes
 server/
   index.ts              — Express app; POST /api/analyze, GET /api/health
   prompt.ts             — static system prompt with Claude product catalogue

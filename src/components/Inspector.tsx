@@ -1,5 +1,5 @@
 import { useWorkflowStore } from '@/store/workflowStore';
-import type { TaskData, FlowRefData } from '@/types';
+import type { TaskData, FlowRefData, DecisionData, TerminalData } from '@/types';
 import styles from './Inspector.module.css';
 
 function Field({
@@ -57,9 +57,19 @@ export default function Inspector() {
   }
 
   const isTask = node.data.type === 'task';
+  const isDecision = node.data.type === 'decision';
+  const isTerminal = node.data.type === 'start' || node.data.type === 'end';
   const data = node.data;
 
-  const update = (patch: Partial<TaskData | FlowRefData>) => {
+  const nodeTypeLabel = {
+    task: 'Task',
+    flow: 'Sub-flow',
+    decision: 'Decision',
+    start: 'Start',
+    end: 'End',
+  }[node.data.type] ?? 'Node';
+
+  const update = (patch: Partial<TaskData | FlowRefData | DecisionData | TerminalData>) => {
     updateNodeData(node.id, patch);
   };
 
@@ -71,18 +81,19 @@ export default function Inspector() {
   return (
     <aside className={styles.panel}>
       <div className={styles.header}>
-        <h2 className={styles.heading}>{isTask ? 'Task' : 'Sub-flow'}</h2>
+        <h2 className={styles.heading}>{nodeTypeLabel}</h2>
         <button className="btn-ghost" onClick={handleDelete} title="Delete node">
           ✕ Delete
         </button>
       </div>
 
       <div className={styles.fields}>
-        <Field label="Name">
+        <Field label={isDecision ? 'Condition / Question' : 'Name'}>
           <input
             className={styles.input}
             value={(data as TaskData).name}
             onChange={(e) => update({ name: e.target.value })}
+            placeholder={isDecision ? 'e.g. Contract approved?' : undefined}
           />
         </Field>
 
@@ -94,6 +105,8 @@ export default function Inspector() {
             rows={3}
           />
         </Field>
+
+        {(isDecision || isTerminal) && null}
 
         {isTask && (
           <>

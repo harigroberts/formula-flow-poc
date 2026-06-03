@@ -10,12 +10,18 @@ import {
 import { useWorkflowStore } from '@/store/workflowStore';
 import TaskNode from './nodes/TaskNode';
 import FlowNode from './nodes/FlowNode';
+import DecisionNode from './nodes/DecisionNode';
+import StartNode from './nodes/StartNode';
+import EndNode from './nodes/EndNode';
 import type { WFNodeData, FlowRefData } from '@/types';
 import styles from './Canvas.module.css';
 
 const nodeTypes: NodeTypes = {
   task: TaskNode,
   flow: FlowNode,
+  decision: DecisionNode,
+  start: StartNode,
+  end: EndNode,
 };
 
 export default function Canvas() {
@@ -29,6 +35,9 @@ export default function Canvas() {
     setSelectedNode,
     addTask,
     addFlow,
+    addDecision,
+    addStart,
+    addEnd,
   } = useWorkflowStore();
 
   const nodes = currentNodes();
@@ -76,8 +85,11 @@ export default function Canvas() {
 
       if (type === 'task') addTask(position);
       if (type === 'flow') addFlow(position);
+      if (type === 'decision') addDecision(position);
+      if (type === 'start') addStart(position);
+      if (type === 'end') addEnd(position);
     },
-    [addTask, addFlow],
+    [addTask, addFlow, addDecision, addStart, addEnd],
   );
 
   return (

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import type { NodeChange, EdgeChange, Connection } from '@xyflow/react';
-import type { WFNode, WFEdge, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData } from '@/types';
+import type { WFNode, WFEdge, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData } from '@/types';
 import { seedDoc } from '@/lib/seed';
 
 interface BreadcrumbEntry {
@@ -33,6 +33,9 @@ interface WorkflowState {
   // CRUD
   addTask: (position: { x: number; y: number }) => void;
   addFlow: (position: { x: number; y: number }) => void;
+  addDecision: (position: { x: number; y: number }) => void;
+  addStart: (position: { x: number; y: number }) => void;
+  addEnd: (position: { x: number; y: number }) => void;
   updateNodeData: (nodeId: string, data: Partial<WFNodeData>) => void;
   deleteNode: (nodeId: string) => void;
   setSelectedNode: (nodeId: string | null) => void;
@@ -75,7 +78,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const currentEdges = state.doc.edges.filter(e => e.flowId === state.currentFlowId);
       const otherEdges = state.doc.edges.filter(e => e.flowId !== state.currentFlowId);
       const merged = addEdge(connection, currentEdges) as (WFEdge & { flowId: string })[];
-      merged.forEach(e => { if (!e.flowId) e.flowId = state.currentFlowId; });
+      merged.forEach(e => {
+        if (!e.flowId) e.flowId = state.currentFlowId;
+        // Annotate decision branch edges with label + data.branch for LLM legibility
+        if ((e.sourceHandle === 'yes' || e.sourceHandle === 'no') && !e.label) {
+          const branch = e.sourceHandle as 'yes' | 'no';
+          e.label = branch === 'yes' ? 'Yes' : 'No';
+          e.data = { ...e.data, branch };
+        }
+      });
       return { doc: { ...state.doc, edges: [...otherEdges, ...merged] } };
     });
   },
@@ -155,6 +166,54 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       },
       selectedNodeId: newNode.id,
     });
+  },
+
+  addDecision: (position) => {
+    const { currentFlowId, doc } = get();
+    const newNode: WFNode & { flowId: string } = {
+      id: `decision-${uid()}`,
+      type: 'decision',
+      position,
+      flowId: currentFlowId,
+      data: {
+        type: 'decision',
+        name: 'Decision?',
+        description: '',
+      } as DecisionData,
+    };
+    set({ doc: { ...doc, nodes: [...doc.nodes, newNode] }, selectedNodeId: newNode.id });
+  },
+
+  addStart: (position) => {
+    const { currentFlowId, doc } = get();
+    const newNode: WFNode & { flowId: string } = {
+      id: `start-${uid()}`,
+      type: 'start',
+      position,
+      flowId: currentFlowId,
+      data: {
+        type: 'start',
+        name: 'Start',
+        description: '',
+      } as TerminalData,
+    };
+    set({ doc: { ...doc, nodes: [...doc.nodes, newNode] }, selectedNodeId: newNode.id });
+  },
+
+  addEnd: (position) => {
+    const { currentFlowId, doc } = get();
+    const newNode: WFNode & { flowId: string } = {
+      id: `end-${uid()}`,
+      type: 'end',
+      position,
+      flowId: currentFlowId,
+      data: {
+        type: 'end',
+        name: 'End',
+        description: '',
+      } as TerminalData,
+    };
+    set({ doc: { ...doc, nodes: [...doc.nodes, newNode] }, selectedNodeId: newNode.id });
   },
 
   updateNodeData: (nodeId, data) => {

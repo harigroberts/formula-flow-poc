@@ -26,6 +26,17 @@ export const seedDoc: WorkflowDoc = {
   nodes: [
     // ── Root flow nodes ───────────────────────────────────────────────────────
     {
+      id: 'n-start',
+      type: 'start',
+      position: { x: -180, y: 96 },
+      flowId: 'flow-root',
+      data: {
+        type: 'start',
+        name: 'Start',
+        description: 'A new B2B customer deal is closed.',
+      },
+    },
+    {
       id: 'n-contract',
       type: 'task',
       position: { x: 60, y: 80 },
@@ -48,9 +59,31 @@ export const seedDoc: WorkflowDoc = {
       },
     },
     {
+      id: 'n-decision-approved',
+      type: 'decision',
+      position: { x: 320, y: 55 },
+      flowId: 'flow-root',
+      data: {
+        type: 'decision',
+        name: 'Contract approved?',
+        description: 'Legal team reviews the signed MSA for compliance before proceeding.',
+      },
+    },
+    {
+      id: 'n-end-rejected',
+      type: 'end',
+      position: { x: 320, y: 220 },
+      flowId: 'flow-root',
+      data: {
+        type: 'end',
+        name: 'Contract rejected',
+        description: 'Contract returned to customer for revision; process stops here.',
+      },
+    },
+    {
       id: 'n-crm',
       type: 'task',
-      position: { x: 340, y: 80 },
+      position: { x: 500, y: 80 },
       flowId: 'flow-root',
       data: {
         type: 'task',
@@ -72,7 +105,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-billing',
       type: 'flow',
-      position: { x: 620, y: 80 },
+      position: { x: 760, y: 80 },
       flowId: 'flow-root',
       data: {
         type: 'flow',
@@ -84,7 +117,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-provisioning',
       type: 'flow',
-      position: { x: 340, y: 260 },
+      position: { x: 500, y: 260 },
       flowId: 'flow-root',
       data: {
         type: 'flow',
@@ -96,7 +129,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-kickoff',
       type: 'task',
-      position: { x: 620, y: 260 },
+      position: { x: 760, y: 260 },
       flowId: 'flow-root',
       data: {
         type: 'task',
@@ -115,8 +148,30 @@ export const seedDoc: WorkflowDoc = {
         painPoints: 'Email is personalised from a template but takes ~30 min due to copy-pasting from multiple sources.',
       },
     },
+    {
+      id: 'n-end-complete',
+      type: 'end',
+      position: { x: 1000, y: 170 },
+      flowId: 'flow-root',
+      data: {
+        type: 'end',
+        name: 'Onboarding complete',
+        description: 'Customer is live, accounts provisioned, billing active, and kickoff sent.',
+      },
+    },
 
     // ── Billing Setup sub-flow nodes ─────────────────────────────────────────
+    {
+      id: 'n-billing-start',
+      type: 'start',
+      position: { x: -160, y: 96 },
+      flowId: 'flow-billing',
+      data: {
+        type: 'start',
+        name: 'Entry',
+        description: 'Entered from the Billing Setup sub-flow node in the parent flow.',
+      },
+    },
     {
       id: 'n-stripe-customer',
       type: 'task',
@@ -183,8 +238,30 @@ export const seedDoc: WorkflowDoc = {
         painPoints: 'Invoice sending could be automated in Stripe; manual step adds a day of lag.',
       },
     },
+    {
+      id: 'n-billing-end',
+      type: 'end',
+      position: { x: 880, y: 96 },
+      flowId: 'flow-billing',
+      data: {
+        type: 'end',
+        name: 'Exit',
+        description: 'Billing setup complete; control returns to the parent flow.',
+      },
+    },
 
     // ── Account Provisioning sub-flow nodes ──────────────────────────────────
+    {
+      id: 'n-provisioning-start',
+      type: 'start',
+      position: { x: -160, y: 96 },
+      flowId: 'flow-provisioning',
+      data: {
+        type: 'start',
+        name: 'Entry',
+        description: 'Entered from the Account Provisioning sub-flow node in the parent flow.',
+      },
+    },
     {
       id: 'n-create-users',
       type: 'task',
@@ -251,19 +328,54 @@ export const seedDoc: WorkflowDoc = {
         painPoints: 'Sending individual emails is slow; no bulk mail capability without a marketing tool.',
       },
     },
+    {
+      id: 'n-provisioning-end',
+      type: 'end',
+      position: { x: 880, y: 96 },
+      flowId: 'flow-provisioning',
+      data: {
+        type: 'end',
+        name: 'Exit',
+        description: 'Provisioning complete; control returns to the parent flow.',
+      },
+    },
   ],
   edges: [
     // Root flow edges
-    { id: 'e-1', source: 'n-contract', target: 'n-crm', flowId: 'flow-root' },
+    { id: 'e-start', source: 'n-start', target: 'n-contract', flowId: 'flow-root' },
+    { id: 'e-1', source: 'n-contract', target: 'n-decision-approved', flowId: 'flow-root' },
+    {
+      id: 'e-decision-yes',
+      source: 'n-decision-approved',
+      target: 'n-crm',
+      sourceHandle: 'yes',
+      label: 'Yes',
+      data: { branch: 'yes' },
+      flowId: 'flow-root',
+    },
+    {
+      id: 'e-decision-no',
+      source: 'n-decision-approved',
+      target: 'n-end-rejected',
+      sourceHandle: 'no',
+      label: 'No',
+      data: { branch: 'no' },
+      flowId: 'flow-root',
+    },
     { id: 'e-2', source: 'n-crm', target: 'n-billing', flowId: 'flow-root' },
     { id: 'e-3', source: 'n-crm', target: 'n-provisioning', flowId: 'flow-root' },
     { id: 'e-4', source: 'n-billing', target: 'n-kickoff', flowId: 'flow-root' },
     { id: 'e-5', source: 'n-provisioning', target: 'n-kickoff', flowId: 'flow-root' },
+    { id: 'e-end', source: 'n-kickoff', target: 'n-end-complete', flowId: 'flow-root' },
     // Billing sub-flow
+    { id: 'e-b0', source: 'n-billing-start', target: 'n-stripe-customer', flowId: 'flow-billing' },
     { id: 'e-b1', source: 'n-stripe-customer', target: 'n-subscription', flowId: 'flow-billing' },
     { id: 'e-b2', source: 'n-subscription', target: 'n-invoice', flowId: 'flow-billing' },
+    { id: 'e-b3', source: 'n-invoice', target: 'n-billing-end', flowId: 'flow-billing' },
     // Provisioning sub-flow
+    { id: 'e-p0', source: 'n-provisioning-start', target: 'n-create-users', flowId: 'flow-provisioning' },
     { id: 'e-p1', source: 'n-create-users', target: 'n-sso', flowId: 'flow-provisioning' },
     { id: 'e-p2', source: 'n-sso', target: 'n-welcome', flowId: 'flow-provisioning' },
+    { id: 'e-p3', source: 'n-welcome', target: 'n-provisioning-end', flowId: 'flow-provisioning' },
   ],
 };

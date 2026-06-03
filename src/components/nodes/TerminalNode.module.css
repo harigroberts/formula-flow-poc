@@ -1,0 +1,43 @@
+.node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  min-width: 100px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.node:hover {
+  box-shadow: var(--shadow-md);
+  opacity: 0.88;
+}
+
+.start {
+  background: var(--color-green);
+  border-color: var(--color-green);
+}
+
+.end {
+  background: var(--color-dark);
+  border-color: var(--color-dark);
+}
+
+.selected {
+  box-shadow: 0 0 0 3px rgba(120, 140, 93, 0.3), var(--shadow-md) !important;
+}
+
+.end.selected {
+  box-shadow: 0 0 0 3px rgba(20, 20, 19, 0.2), var(--shadow-md) !important;
+}
+
+.name {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-light);
+  white-space: nowrap;
+}

@@ -22,6 +22,9 @@ export default function Sidebar() {
         <p className={styles.hint}>Drag onto the canvas</p>
         <DraggableItem label="Task" type="task" icon="✦" />
         <DraggableItem label="Sub-flow" type="flow" icon="⚡" />
+        <DraggableItem label="Decision" type="decision" icon="◆" />
+        <DraggableItem label="Start" type="start" icon="▶" />
+        <DraggableItem label="End" type="end" icon="■" />
       </div>
       <div className={styles.section}>
         <h3 className={styles.heading}>Tips</h3>

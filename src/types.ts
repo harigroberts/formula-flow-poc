@@ -26,9 +26,25 @@ export interface FlowRefData extends Record<string, unknown> {
   description?: string;
 }
 
-export type WFNodeData = TaskData | FlowRefData;
+export interface DecisionData extends Record<string, unknown> {
+  type: 'decision';
+  name: string;
+  description?: string;
+}
+
+export interface TerminalData extends Record<string, unknown> {
+  type: 'start' | 'end';
+  name: string;
+  description?: string;
+}
+
+export interface WFEdgeData extends Record<string, unknown> {
+  branch?: 'yes' | 'no';
+}
+
+export type WFNodeData = TaskData | FlowRefData | DecisionData | TerminalData;
 export type WFNode = Node<WFNodeData>;
-export type WFEdge = Edge;
+export type WFEdge = Edge<WFEdgeData>;
 
 export interface Flow {
   id: string;
