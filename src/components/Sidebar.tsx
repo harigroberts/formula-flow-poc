@@ -24,7 +24,7 @@ export default function Sidebar() {
         <DraggableItem label="Sub-flow" type="flow" icon="⚡" />
         <DraggableItem label="Decision" type="decision" icon="◆" iconClass={styles.iconLarge} />
         <DraggableItem label="Start" type="start" icon="▶" iconColor="var(--color-green)" />
-        <DraggableItem label="End" type="end" icon="■" iconColor="var(--color-red)" />
+        <DraggableItem label="End" type="end" icon="■" iconColor="var(--color-red)" iconClass={styles.iconLarge} />
       </div>
       <div className={styles.section}>
         <h3 className={styles.heading}>Tips</h3>
