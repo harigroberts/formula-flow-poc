@@ -34,10 +34,11 @@ function FindingCard({ f }: { f: AnalysisFinding }) {
 interface AnalysisPanelProps {
   result: AnalysisResult | null;
   error: string | null;
+  loading: boolean;
   onClose: () => void;
 }
 
-export default function AnalysisPanel({ result, error, onClose }: AnalysisPanelProps) {
+export default function AnalysisPanel({ result, error, loading, onClose }: AnalysisPanelProps) {
   return (
     <div className={styles.overlay}>
       <div className={styles.panel}>
@@ -47,6 +48,13 @@ export default function AnalysisPanel({ result, error, onClose }: AnalysisPanelP
             ✕
           </button>
         </div>
+
+        {loading && !result && !error && (
+          <div className={styles.loading}>
+            <span className={styles.spinner} />
+            <p>Analysing your flow with Claude Haiku…</p>
+          </div>
+        )}
 
         {error && (
           <div className={styles.error}>

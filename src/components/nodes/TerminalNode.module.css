@@ -22,8 +22,8 @@
 }
 
 .end {
-  background: var(--color-dark);
-  border-color: var(--color-dark);
+  background: var(--color-red);
+  border-color: var(--color-red);
 }
 
 .selected {
@@ -31,7 +31,7 @@
 }
 
 .end.selected {
-  box-shadow: 0 0 0 3px rgba(20, 20, 19, 0.2), var(--shadow-md) !important;
+  box-shadow: 0 0 0 3px rgba(190, 58, 52, 0.3), var(--shadow-md) !important;
 }
 
 .name {

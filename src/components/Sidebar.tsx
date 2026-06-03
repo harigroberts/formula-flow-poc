@@ -1,6 +1,6 @@
 import styles from './Sidebar.module.css';
 
-function DraggableItem({ label, type, icon }: { label: string; type: string; icon: string }) {
+function DraggableItem({ label, type, icon, iconColor, iconClass }: { label: string; type: string; icon: string; iconColor?: string; iconClass?: string }) {
   const onDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/flow-node-type', type);
     e.dataTransfer.effectAllowed = 'move';
@@ -8,7 +8,7 @@ function DraggableItem({ label, type, icon }: { label: string; type: string; ico
 
   return (
     <div className={styles.item} draggable onDragStart={onDragStart}>
-      <span className={styles.icon}>{icon}</span>
+      <span className={`${styles.icon} ${iconClass ?? ''}`} style={iconColor ? { color: iconColor } : undefined}>{icon}</span>
       <span className={styles.label}>{label}</span>
     </div>
   );
@@ -22,9 +22,9 @@ export default function Sidebar() {
         <p className={styles.hint}>Drag onto the canvas</p>
         <DraggableItem label="Task" type="task" icon="✦" />
         <DraggableItem label="Sub-flow" type="flow" icon="⚡" />
-        <DraggableItem label="Decision" type="decision" icon="◆" />
-        <DraggableItem label="Start" type="start" icon="▶" />
-        <DraggableItem label="End" type="end" icon="■" />
+        <DraggableItem label="Decision" type="decision" icon="◆" iconClass={styles.iconLarge} />
+        <DraggableItem label="Start" type="start" icon="▶" iconColor="var(--color-green)" />
+        <DraggableItem label="End" type="end" icon="■" iconColor="var(--color-red)" />
       </div>
       <div className={styles.section}>
         <h3 className={styles.heading}>Tips</h3>

@@ -28,7 +28,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-start',
       type: 'start',
-      position: { x: -180, y: 96 },
+      position: { x: 0, y: 180 },
       flowId: 'flow-root',
       data: {
         type: 'start',
@@ -39,7 +39,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-contract',
       type: 'task',
-      position: { x: 60, y: 80 },
+      position: { x: 180, y: 120 },
       flowId: 'flow-root',
       data: {
         type: 'task',
@@ -61,7 +61,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-decision-approved',
       type: 'decision',
-      position: { x: 320, y: 55 },
+      position: { x: 470, y: 140 },
       flowId: 'flow-root',
       data: {
         type: 'decision',
@@ -72,7 +72,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-end-rejected',
       type: 'end',
-      position: { x: 320, y: 220 },
+      position: { x: 660, y: 360 },
       flowId: 'flow-root',
       data: {
         type: 'end',
@@ -83,7 +83,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-crm',
       type: 'task',
-      position: { x: 500, y: 80 },
+      position: { x: 660, y: 120 },
       flowId: 'flow-root',
       data: {
         type: 'task',
@@ -105,7 +105,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-billing',
       type: 'flow',
-      position: { x: 760, y: 80 },
+      position: { x: 950, y: 70 },
       flowId: 'flow-root',
       data: {
         type: 'flow',
@@ -117,7 +117,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-provisioning',
       type: 'flow',
-      position: { x: 500, y: 260 },
+      position: { x: 950, y: 250 },
       flowId: 'flow-root',
       data: {
         type: 'flow',
@@ -129,7 +129,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-kickoff',
       type: 'task',
-      position: { x: 760, y: 260 },
+      position: { x: 1240, y: 160 },
       flowId: 'flow-root',
       data: {
         type: 'task',
@@ -151,7 +151,7 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'n-end-complete',
       type: 'end',
-      position: { x: 1000, y: 170 },
+      position: { x: 1530, y: 180 },
       flowId: 'flow-root',
       data: {
         type: 'end',

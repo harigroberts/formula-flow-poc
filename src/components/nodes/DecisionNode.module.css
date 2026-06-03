@@ -9,12 +9,16 @@
 
 .diamond {
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  width: 85px;
+  height: 85px;
+  transform: translate(-50%, -50%) rotate(45deg);
   background: var(--color-light);
   border: 2px solid var(--color-blue);
-  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  border-radius: 4px;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .wrapper:hover .diamond {

@@ -51,11 +51,9 @@ export default function App() {
           <AnalysisPanel
             result={analysisResult}
             error={analysisError}
+            loading={analysing}
             onClose={() => setShowAnalysis(false)}
           />
-        )}
-        {analysing && !showAnalysis && (
-          <div className={styles.analysisToast}>Analysing with Claude Haiku…</div>
         )}
       </div>
     </ReactFlowProvider>
