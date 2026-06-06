@@ -5,7 +5,9 @@ export async function analyzeFlow(doc: WorkflowDoc, flowId: string): Promise<Ana
   const nodes = doc.nodes.filter(n => n.flowId === flowId);
   const edges = doc.edges.filter(e => e.flowId === flowId);
 
-  const payload = { flow, nodes, edges };
+  // Send the org-wide registries so Claude can join tasks → frequency counts /
+  // persona capacity and roll savings up into monthly totals + utilisation.
+  const payload = { flow, nodes, edges, frequencies: doc.frequencies, personas: doc.personas };
 
   const res = await fetch('/api/analyze', {
     method: 'POST',

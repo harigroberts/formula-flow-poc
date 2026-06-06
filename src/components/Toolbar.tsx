@@ -6,9 +6,10 @@ import styles from './Toolbar.module.css';
 interface ToolbarProps {
   onAnalyse: () => void;
   analysing: boolean;
+  onOpenAssumptions: () => void;
 }
 
-export default function Toolbar({ onAnalyse, analysing }: ToolbarProps) {
+export default function Toolbar({ onAnalyse, analysing, onOpenAssumptions }: ToolbarProps) {
   const { getDoc, loadDoc, currentFlow } = useWorkflowStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState('');
@@ -44,6 +45,9 @@ export default function Toolbar({ onAnalyse, analysing }: ToolbarProps) {
         </button>
         <button className="btn-secondary" onClick={() => fileRef.current?.click()}>
           Import
+        </button>
+        <button className="btn-ghost" onClick={onOpenAssumptions} title="Edit org-wide frequency counts and personas">
+          ⚙ Assumptions
         </button>
         <input
           ref={fileRef}

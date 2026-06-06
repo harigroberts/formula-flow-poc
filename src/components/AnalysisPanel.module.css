@@ -63,6 +63,76 @@
   color: var(--color-dark);
 }
 
+.totalSaved {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-dark);
+}
+
+.totalSaved strong {
+  color: var(--color-green);
+}
+
+.utilisation {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-light-gray);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.utilTitle {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-mid-gray);
+}
+
+.utilRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.utilHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.utilName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.utilPct {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-orange);
+}
+
+.utilBar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-light-gray);
+  overflow: hidden;
+}
+
+.utilFill {
+  height: 100%;
+  background: var(--color-orange);
+  border-radius: 999px;
+}
+
+.utilDetail {
+  font-size: 11px;
+  color: var(--color-mid-gray);
+}
+
 .findings {
   flex: 1;
   overflow-y: auto;

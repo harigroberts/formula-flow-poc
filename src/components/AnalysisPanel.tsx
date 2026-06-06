@@ -25,6 +25,9 @@ function FindingCard({ f }: { f: AnalysisFinding }) {
         {f.estTimeSavedPerRun !== undefined && (
           <span className={styles.timeSaved}>⏱ ~{f.estTimeSavedPerRun}m saved/run</span>
         )}
+        {f.estMonthlyTimeSaved !== undefined && (
+          <span className={styles.timeSaved}>📅 ~{f.estMonthlyTimeSaved}m saved/mo</span>
+        )}
       </div>
       <p className={styles.rationale}>{f.rationale}</p>
     </div>
@@ -66,7 +69,39 @@ export default function AnalysisPanel({ result, error, loading, onClose }: Analy
           <>
             <div className={styles.summary}>
               <p>{result.summary}</p>
+              {result.totalMonthlyTimeSaved !== undefined && (
+                <p className={styles.totalSaved}>
+                  Total potential saving: <strong>
+                    ~{Math.round(result.totalMonthlyTimeSaved / 60)}h/month
+                  </strong>{' '}
+                  ({result.totalMonthlyTimeSaved}m)
+                </p>
+              )}
             </div>
+
+            {result.personaUtilisation && result.personaUtilisation.length > 0 && (
+              <div className={styles.utilisation}>
+                <h3 className={styles.utilTitle}>Persona utilisation</h3>
+                {result.personaUtilisation.map((u) => (
+                  <div key={u.persona} className={styles.utilRow}>
+                    <div className={styles.utilHead}>
+                      <span className={styles.utilName}>{u.persona}</span>
+                      <span className={styles.utilPct}>{Math.round(u.utilisationPct)}%</span>
+                    </div>
+                    <div className={styles.utilBar}>
+                      <div
+                        className={styles.utilFill}
+                        style={{ width: `${Math.min(100, Math.max(0, u.utilisationPct))}%` }}
+                      />
+                    </div>
+                    <span className={styles.utilDetail}>
+                      {Math.round(u.attributedHoursPerMonth)}h attributed of{' '}
+                      {Math.round(u.capacityHoursPerMonth)}h capacity / month
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className={styles.findings}>
               {result.findings.length === 0 && (
                 <p className={styles.none}>No specific automation opportunities identified.</p>

@@ -8,6 +8,7 @@ import Sidebar from '@/components/Sidebar';
 import Canvas from '@/components/Canvas';
 import Inspector from '@/components/Inspector';
 import AnalysisPanel from '@/components/AnalysisPanel';
+import SettingsPanel from '@/components/SettingsPanel';
 import type { AnalysisResult } from '@/types';
 import styles from './App.module.css';
 
@@ -17,6 +18,7 @@ export default function App() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleAnalyse = async () => {
     setAnalysing(true);
@@ -36,7 +38,11 @@ export default function App() {
   return (
     <ReactFlowProvider>
       <div className={styles.app}>
-        <Toolbar onAnalyse={handleAnalyse} analysing={analysing} />
+        <Toolbar
+          onAnalyse={handleAnalyse}
+          analysing={analysing}
+          onOpenAssumptions={() => setShowSettings(true)}
+        />
         <div className={styles.body}>
           <div className={styles.main}>
             <Breadcrumbs />
@@ -55,6 +61,7 @@ export default function App() {
             onClose={() => setShowAnalysis(false)}
           />
         )}
+        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       </div>
     </ReactFlowProvider>
   );

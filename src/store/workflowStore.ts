@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import type { NodeChange, EdgeChange, Connection } from '@xyflow/react';
-import type { WFNode, WFEdge, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData } from '@/types';
+import type { WFNode, WFEdge, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData, FrequencyCategory, Persona } from '@/types';
 import { seedDoc } from '@/lib/seed';
+import { normalizeDoc } from '@/lib/persistence';
 
 interface BreadcrumbEntry {
   flowId: string;
@@ -25,6 +26,8 @@ interface WorkflowState {
   currentEdges: () => (WFEdge & { flowId: string })[];
   currentFlow: () => Flow | undefined;
   selectedNode: () => (WFNode & { flowId: string }) | undefined;
+  frequencies: () => FrequencyCategory[];
+  personas: () => Persona[];
 
   // navigation
   enterFlow: (childFlowId: string) => void;
@@ -39,6 +42,14 @@ interface WorkflowState {
   updateNodeData: (nodeId: string, data: Partial<WFNodeData>) => void;
   deleteNode: (nodeId: string) => void;
   setSelectedNode: (nodeId: string | null) => void;
+
+  // org-wide assumptions
+  addFrequency: () => string;
+  updateFrequency: (id: string, patch: Partial<FrequencyCategory>) => void;
+  deleteFrequency: (id: string) => void;
+  addPersona: () => string;
+  updatePersona: (id: string, patch: Partial<Persona>) => void;
+  deletePersona: (id: string) => void;
 
   // import/export
   loadDoc: (doc: WorkflowDoc) => void;
@@ -99,6 +110,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (!selectedNodeId) return undefined;
     return doc.nodes.find(n => n.id === selectedNodeId);
   },
+  frequencies: () => get().doc.frequencies,
+  personas: () => get().doc.personas,
 
   enterFlow: (childFlowId) => {
     const { doc, breadcrumbs } = get();
@@ -134,7 +147,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         type: 'task',
         name: 'New Task',
         description: '',
-        ownerRole: '',
         status: 'todo',
         isManual: true,
       } as TaskData,
@@ -256,11 +268,82 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId }),
 
+  addFrequency: () => {
+    const id = `freq-${uid()}`;
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        frequencies: [...state.doc.frequencies, { id, label: 'New frequency', occurrencesPerMonth: 0 }],
+      },
+    }));
+    return id;
+  },
+
+  updateFrequency: (id, patch) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        frequencies: state.doc.frequencies.map(f => (f.id === id ? { ...f, ...patch } : f)),
+      },
+    }));
+  },
+
+  deleteFrequency: (id) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        frequencies: state.doc.frequencies.filter(f => f.id !== id),
+        // Unlink any tasks that referenced it.
+        nodes: state.doc.nodes.map(n =>
+          n.data.type === 'task' && (n.data as TaskData).frequencyId === id
+            ? { ...n, data: { ...n.data, frequencyId: undefined } as TaskData }
+            : n
+        ),
+      },
+    }));
+  },
+
+  addPersona: () => {
+    const id = `persona-${uid()}`;
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        personas: [...state.doc.personas, { id, role: 'New role', workerCount: 1, avgWeeklyHours: 40 }],
+      },
+    }));
+    return id;
+  },
+
+  updatePersona: (id, patch) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        personas: state.doc.personas.map(p => (p.id === id ? { ...p, ...patch } : p)),
+      },
+    }));
+  },
+
+  deletePersona: (id) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        personas: state.doc.personas.filter(p => p.id !== id),
+        // Unlink any tasks that referenced it.
+        nodes: state.doc.nodes.map(n =>
+          n.data.type === 'task' && (n.data as TaskData).personaId === id
+            ? { ...n, data: { ...n.data, personaId: undefined } as TaskData }
+            : n
+        ),
+      },
+    }));
+  },
+
   loadDoc: (doc) => {
+    const normalized = normalizeDoc(doc);
     set({
-      doc,
-      currentFlowId: doc.rootFlowId,
-      breadcrumbs: [{ flowId: doc.rootFlowId, name: doc.flows.find(f => f.id === doc.rootFlowId)?.name ?? 'Root' }],
+      doc: normalized,
+      currentFlowId: normalized.rootFlowId,
+      breadcrumbs: [{ flowId: normalized.rootFlowId, name: normalized.flows.find(f => f.id === normalized.rootFlowId)?.name ?? 'Root' }],
       selectedNodeId: null,
     });
   },

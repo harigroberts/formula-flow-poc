@@ -9,7 +9,7 @@ export async function analyzeWorkflow(payload: unknown): Promise<AnalysisResult>
 
   const response = await client.messages.create({
     model: 'claude-haiku-4-5',
-    max_tokens: 2048,
+    max_tokens: 3072,
     system: [
       {
         type: 'text',

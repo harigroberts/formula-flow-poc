@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { useWorkflowStore } from '@/store/workflowStore';
 import type { TaskData, FlowRefData, DecisionData, TerminalData } from '@/types';
 import styles from './Inspector.module.css';
+
+const NEW_OPTION = '__new__';
 
 function Field({
   label,
@@ -44,14 +47,36 @@ function TagInput({
 }
 
 export default function Inspector() {
-  const { selectedNode, updateNodeData, deleteNode, selectedNodeId, setSelectedNode } =
-    useWorkflowStore();
+  const {
+    selectedNode,
+    updateNodeData,
+    deleteNode,
+    setSelectedNode,
+    frequencies,
+    personas,
+    addFrequency,
+    addPersona,
+  } = useWorkflowStore();
+  const [collapsed, setCollapsed] = useState(false);
 
   const node = selectedNode();
-  if (!node) {
+
+  // Collapse to a thin rail when nothing is selected, or when manually collapsed.
+  if (!node || collapsed) {
     return (
-      <aside className={styles.panel}>
-        <p className={styles.empty}>Select a node to inspect it.</p>
+      <aside className={`${styles.panel} ${styles.collapsed}`}>
+        <button
+          className={styles.expandBtn}
+          onClick={() => {
+            setCollapsed(false);
+            // Nothing to expand to if no node is selected; just clear the manual flag.
+          }}
+          disabled={!node}
+          title={node ? 'Expand inspector' : 'Select a node to inspect it'}
+        >
+          <span className={styles.railIcon}>‹</span>
+          <span className={styles.railLabel}>Inspector</span>
+        </button>
       </aside>
     );
   }
@@ -78,9 +103,44 @@ export default function Inspector() {
     setSelectedNode(null);
   };
 
+  const handlePersonaChange = (value: string) => {
+    if (value === NEW_OPTION) {
+      const role = window.prompt('Name the new role / persona')?.trim();
+      if (!role) return;
+      const id = addPersona();
+      // Rename the freshly-created persona to the entered label.
+      useWorkflowStore.getState().updatePersona(id, { role });
+      update({ personaId: id });
+      return;
+    }
+    update({ personaId: value || undefined });
+  };
+
+  const handleFrequencyChange = (value: string) => {
+    if (value === NEW_OPTION) {
+      const label = window.prompt('Name the new frequency category')?.trim();
+      if (!label) return;
+      const id = addFrequency();
+      useWorkflowStore.getState().updateFrequency(id, { label });
+      update({ frequencyId: id });
+      return;
+    }
+    update({ frequencyId: value || undefined });
+  };
+
+  const personaList = personas();
+  const frequencyList = frequencies();
+
   return (
     <aside className={styles.panel}>
       <div className={styles.header}>
+        <button
+          className={styles.collapseBtn}
+          onClick={() => setCollapsed(true)}
+          title="Collapse inspector"
+        >
+          ›
+        </button>
         <h2 className={styles.heading}>{nodeTypeLabel}</h2>
         <button className="btn-ghost" onClick={handleDelete} title="Delete node">
           ✕ Delete
@@ -111,12 +171,19 @@ export default function Inspector() {
         {isTask && (
           <>
             <Field label="Owner / Role">
-              <input
-                className={styles.input}
-                value={(data as TaskData).ownerRole ?? ''}
-                onChange={(e) => update({ ownerRole: e.target.value })}
-                placeholder="e.g. Customer Success Manager"
-              />
+              <select
+                className={styles.select}
+                value={(data as TaskData).personaId ?? ''}
+                onChange={(e) => handlePersonaChange(e.target.value)}
+              >
+                <option value="">— Unassigned —</option>
+                {personaList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.role}
+                  </option>
+                ))}
+                <option value={NEW_OPTION}>＋ New role…</option>
+              </select>
             </Field>
 
             <Field label="Status">
@@ -147,12 +214,19 @@ export default function Inspector() {
                 />
               </Field>
               <Field label="Frequency">
-                <input
-                  className={styles.input}
-                  value={(data as TaskData).frequency ?? ''}
-                  onChange={(e) => update({ frequency: e.target.value })}
-                  placeholder="e.g. daily"
-                />
+                <select
+                  className={styles.select}
+                  value={(data as TaskData).frequencyId ?? ''}
+                  onChange={(e) => handleFrequencyChange(e.target.value)}
+                >
+                  <option value="">— None —</option>
+                  {frequencyList.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                  <option value={NEW_OPTION}>＋ New…</option>
+                </select>
               </Field>
             </div>
 

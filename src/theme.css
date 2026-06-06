@@ -21,6 +21,7 @@
 
   --sidebar-width: 220px;
   --inspector-width: 300px;
+  --inspector-collapsed-width: 36px;
   --toolbar-height: 56px;
   --breadcrumb-height: 40px;
 }

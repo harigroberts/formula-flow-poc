@@ -5,7 +5,7 @@ import {
   Controls,
   MiniMap,
   type NodeTypes,
-  type OnNodeDoubleClick,
+  type NodeMouseHandler,
 } from '@xyflow/react';
 import { useWorkflowStore } from '@/store/workflowStore';
 import TaskNode from './nodes/TaskNode';
@@ -43,7 +43,7 @@ export default function Canvas() {
   const nodes = currentNodes();
   const edges = currentEdges();
 
-  const onNodeDoubleClick: OnNodeDoubleClick = useCallback(
+  const onNodeDoubleClick: NodeMouseHandler = useCallback(
     (_event, node) => {
       const data = node.data as WFNodeData;
       if (data.type === 'flow') {

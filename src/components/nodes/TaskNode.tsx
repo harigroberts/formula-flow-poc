@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { TaskData } from '@/types';
+import { useWorkflowStore } from '@/store/workflowStore';
 import styles from './TaskNode.module.css';
 
 const statusColor: Record<string, string> = {
@@ -11,6 +12,9 @@ const statusColor: Record<string, string> = {
 
 function TaskNode({ data, selected }: NodeProps) {
   const d = data as unknown as TaskData;
+  const role = useWorkflowStore((s) =>
+    s.doc.personas.find((p) => p.id === d.personaId)?.role
+  );
   return (
     <div className={`${styles.node} ${selected ? styles.selected : ''}`}>
       <Handle type="target" position={Position.Left} />
@@ -21,7 +25,7 @@ function TaskNode({ data, selected }: NodeProps) {
         />
         <span className={styles.name}>{d.name || 'Untitled Task'}</span>
       </div>
-      {d.ownerRole && <div className={styles.role}>{d.ownerRole}</div>}
+      {role && <div className={styles.role}>{role}</div>}
       <div className={styles.badges}>
         {d.isManual !== undefined && (
           <span className={`${styles.badge} ${d.isManual ? styles.badgeManual : styles.badgeAuto}`}>
