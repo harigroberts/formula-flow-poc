@@ -25,7 +25,7 @@ export default function App() {
     setAnalysisError(null);
     setShowAnalysis(true);
     try {
-      const result = await analyzeFlow(getDoc(), currentFlowId);
+      const result = await analyzeFlow(getDoc(), getDoc().rootFlowId);
       setAnalysisResult(result);
     } catch (err) {
       setAnalysisError(err instanceof Error ? err.message : 'Unknown error');

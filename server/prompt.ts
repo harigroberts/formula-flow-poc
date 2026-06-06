@@ -10,6 +10,13 @@ The workflow JSON uses the following node types:
 
 When reading edges from a decision node, use \`data.branch\` (or \`label\`) to understand which path is taken under which condition.
 
+## Payload structure
+The user message contains a JSON object with:
+- **flows** — array of all flows included in this analysis (\`{ id, name, parentFlowId }\`). The root flow has \`parentFlowId: null\`; child flows reference their parent by id.
+- **nodes** — ALL nodes across every flow in the array, each tagged with \`flowId\` so you can group them by flow. Analyse task nodes from all flows, not just the root.
+- **edges** — ALL edges across every flow, also tagged with \`flowId\`.
+- **frequencies** and **personas** — org-wide registries (see below).
+
 ## Org-wide registries
 The payload also includes two document-level lists you must join against:
 - **frequencies** — \`{ id, label, occurrencesPerMonth }\`. A task's \`frequencyId\` points here; \`occurrencesPerMonth\` is how many times that task runs per month across the whole org.
@@ -20,7 +27,7 @@ Analyse the workflow JSON provided by the user. For each task node that could be
 
 When estimating impact, scale per-run savings into monthly totals using the task's frequency:
 - \`estMonthlyTimeSaved\` (minutes/month) = \`estTimeSavedPerRun\` × the \`occurrencesPerMonth\` of the task's frequency category. Omit if either input is unknown.
-- In the summary, report \`totalMonthlyTimeSaved\` (sum across findings) and, where personas have capacity data, a \`personaUtilisation\` breakdown: for each persona, the hours/month currently attributed to their tasks (\`humanMinutesPerRun × occurrencesPerMonth\`, summed, ÷ 60) versus their available capacity hours/month, and the resulting utilisation %.
+- In the summary, report \`totalMonthlyTimeSaved\` (sum across findings) and, where personas have capacity data, a \`personaUtilisation\` breakdown: for each persona, include (a) \`attributedHoursPerMonth\` — total current workload (\`humanMinutesPerRun × occurrencesPerMonth ÷ 60\`, summed across all their tasks), (b) \`savedHoursPerMonth\` — potential automation saving (\`estTimeSavedPerRun × occurrencesPerMonth ÷ 60\`, summed across findings attributed to this persona; omit if none), (c) \`capacityHoursPerMonth\` — \`workerCount × avgWeeklyHours × 4.33\`, and (d) \`utilisationPct\` — \`attributedHoursPerMonth / capacityHoursPerMonth × 100\`. The sum of \`savedHoursPerMonth\` across all personas should equal \`totalMonthlyTimeSaved ÷ 60\`.
 
 ## Claude & Anthropic product catalogue (choose the best fit per finding)
 - **Claude API / Anthropic SDK** — call Claude programmatically to summarise, classify, draft, extract, or route content
@@ -51,8 +58,9 @@ When estimating impact, scale per-run savings into monthly totals using the task
   "personaUtilisation": [
     {
       "persona": "<persona role>",
-      "attributedHoursPerMonth": <number>,
-      "capacityHoursPerMonth": <number>,
+      "attributedHoursPerMonth": <number — humanMinutesPerRun × occurrencesPerMonth ÷ 60, summed across all tasks for this persona>,
+      "savedHoursPerMonth": <number — estTimeSavedPerRun × occurrencesPerMonth ÷ 60, summed across findings attributed to this persona; omit if no findings for this persona>,
+      "capacityHoursPerMonth": <number — workerCount × avgWeeklyHours × 4.33>,
       "utilisationPct": <number 0-100>
     }
   ]

@@ -102,6 +102,7 @@ export interface AnalysisFinding {
 export interface PersonaUtilisation {
   persona: string;
   attributedHoursPerMonth: number;
+  savedHoursPerMonth?: number;
   capacityHoursPerMonth: number;
   utilisationPct: number;
 }
