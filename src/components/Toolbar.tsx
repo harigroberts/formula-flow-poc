@@ -10,7 +10,7 @@ interface ToolbarProps {
 }
 
 export default function Toolbar({ onAnalyse, analysing, onOpenAssumptions }: ToolbarProps) {
-  const { getDoc, loadDoc, currentFlow } = useWorkflowStore();
+  const { getDoc, loadDoc, currentFlow, clearCurrentFlow } = useWorkflowStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState('');
 
@@ -37,6 +37,17 @@ export default function Toolbar({ onAnalyse, analysing, onOpenAssumptions }: Too
         <span className={styles.title}>Formula Flow</span>
       </div>
       <div className={styles.actions}>
+        <button
+          className="btn-ghost"
+          onClick={() => {
+            if (confirm(`Clear all nodes and edges in "${flow?.name ?? 'this flow'}"? This cannot be undone.`)) {
+              clearCurrentFlow();
+            }
+          }}
+          title="Remove all nodes and edges from the current flow"
+        >
+          Clear flow
+        </button>
         <button className="btn-ghost" onClick={() => exportJson(getDoc())}>
           Export JSON
         </button>
@@ -47,7 +58,7 @@ export default function Toolbar({ onAnalyse, analysing, onOpenAssumptions }: Too
           Import
         </button>
         <button className="btn-ghost" onClick={onOpenAssumptions} title="Edit org-wide frequency counts and personas">
-          ⚙ Assumptions
+          <span style={{ fontSize: '1.25em', lineHeight: 1 }}>⚙</span> Assumptions
         </button>
         <input
           ref={fileRef}

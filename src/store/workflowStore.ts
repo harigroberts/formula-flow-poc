@@ -51,6 +51,9 @@ interface WorkflowState {
   updatePersona: (id: string, patch: Partial<Persona>) => void;
   deletePersona: (id: string) => void;
 
+  // flow management
+  clearCurrentFlow: () => void;
+
   // import/export
   loadDoc: (doc: WorkflowDoc) => void;
   getDoc: () => WorkflowDoc;
@@ -335,6 +338,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             : n
         ),
       },
+    }));
+  },
+
+  clearCurrentFlow: () => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        nodes: state.doc.nodes.filter(n => n.flowId !== state.currentFlowId),
+        edges: state.doc.edges.filter(e => e.flowId !== state.currentFlowId),
+      },
+      selectedNodeId: null,
     }));
   },
 
