@@ -13,7 +13,7 @@ import type { AnalysisResult } from '@/types';
 import styles from './App.module.css';
 
 export default function App() {
-  const { getDoc, currentFlowId } = useWorkflowStore();
+  const { getDoc } = useWorkflowStore();
   const [analysing, setAnalysing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);

@@ -3,6 +3,7 @@ import { useWorkflowStore } from '@/store/workflowStore';
 import type { TaskData, FlowRefData, DecisionData, TerminalData } from '@/types';
 import styles from './Inspector.module.css';
 
+
 const NEW_OPTION = '__new__';
 
 function Field({
@@ -56,27 +57,68 @@ export default function Inspector() {
     personas,
     addFrequency,
     addPersona,
+    currentFlow,
+    updateCurrentFlow,
   } = useWorkflowStore();
   const [collapsed, setCollapsed] = useState(false);
 
   const node = selectedNode();
+  const flow = currentFlow();
 
-  // Collapse to a thin rail when nothing is selected, or when manually collapsed.
-  if (!node || collapsed) {
+  if (collapsed) {
     return (
       <aside className={`${styles.panel} ${styles.collapsed}`}>
         <button
           className={styles.expandBtn}
-          onClick={() => {
-            setCollapsed(false);
-            // Nothing to expand to if no node is selected; just clear the manual flag.
-          }}
-          disabled={!node}
-          title={node ? 'Expand inspector' : 'Select a node to inspect it'}
+          onClick={() => setCollapsed(false)}
+          title="Expand inspector"
         >
           <span className={styles.railIcon}>‹</span>
           <span className={styles.railLabel}>Inspector</span>
         </button>
+      </aside>
+    );
+  }
+
+  // When nothing is selected, show editable properties for the current flow.
+  if (!node) {
+    return (
+      <aside className={styles.panel}>
+        <div className={styles.header}>
+          <button
+            className={styles.collapseBtn}
+            onClick={() => setCollapsed(true)}
+            title="Collapse inspector"
+          >
+            ›
+          </button>
+          <h2 className={styles.heading}>Flow properties</h2>
+        </div>
+        <div className={styles.fields}>
+          <Field label="Name">
+            <input
+              className={styles.input}
+              value={flow?.name ?? ''}
+              onChange={(e) => updateCurrentFlow({ name: e.target.value })}
+            />
+          </Field>
+          <Field label="Description">
+            <textarea
+              className={styles.textarea}
+              value={flow?.description ?? ''}
+              onChange={(e) => updateCurrentFlow({ description: e.target.value })}
+              rows={3}
+            />
+          </Field>
+          <Field label="Department">
+            <input
+              className={styles.input}
+              value={flow?.department ?? ''}
+              onChange={(e) => updateCurrentFlow({ department: e.target.value || undefined })}
+              placeholder="e.g. Sales Operations"
+            />
+          </Field>
+        </div>
       </aside>
     );
   }
@@ -165,6 +207,17 @@ export default function Inspector() {
             rows={3}
           />
         </Field>
+
+        {data.type === 'flow' && (
+          <Field label="Department">
+            <input
+              className={styles.input}
+              value={(data as FlowRefData).department ?? ''}
+              onChange={(e) => update({ department: e.target.value || undefined })}
+              placeholder="e.g. Sales Operations"
+            />
+          </Field>
+        )}
 
         {(isDecision || isTerminal) && null}
 

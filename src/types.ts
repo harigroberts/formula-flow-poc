@@ -24,6 +24,7 @@ export interface FlowRefData extends Record<string, unknown> {
   name: string;
   childFlowId: string;
   description?: string;
+  department?: string;
 }
 
 export interface DecisionData extends Record<string, unknown> {
@@ -50,6 +51,7 @@ export interface Flow {
   id: string;
   name: string;
   description: string;
+  department?: string;
   parentFlowId: string | null;
 }
 

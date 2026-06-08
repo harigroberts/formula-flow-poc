@@ -53,6 +53,7 @@ interface WorkflowState {
 
   // flow management
   clearCurrentFlow: () => void;
+  updateCurrentFlow: (patch: Partial<Flow>) => void;
 
   // import/export
   loadDoc: (doc: WorkflowDoc) => void;
@@ -243,7 +244,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const ref = updated.data as FlowRefData;
         flows = state.doc.flows.map(f =>
           f.id === ref.childFlowId
-            ? { ...f, name: ref.name, description: ref.description ?? f.description }
+            ? { ...f, name: ref.name, description: ref.description ?? f.description, department: ref.department ?? f.department }
             : f
         );
       }
@@ -349,6 +350,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         edges: state.doc.edges.filter(e => e.flowId !== state.currentFlowId),
       },
       selectedNodeId: null,
+    }));
+  },
+
+  updateCurrentFlow: (patch) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        flows: state.doc.flows.map(f =>
+          f.id === state.currentFlowId ? { ...f, ...patch } : f
+        ),
+      },
+      // Keep breadcrumb label in sync when name changes.
+      breadcrumbs: patch.name
+        ? state.breadcrumbs.map(b =>
+            b.flowId === state.currentFlowId ? { ...b, name: patch.name as string } : b
+          )
+        : state.breadcrumbs,
     }));
   },
 
