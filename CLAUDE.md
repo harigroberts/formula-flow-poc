@@ -12,15 +12,25 @@ npm run dev                   # starts Vite (5173) + Express API (8787) concurre
 
 Open http://localhost:5173. The app loads a seeded "Customer Onboarding" workflow.
 
+To enable cloud sync, also add to `.env`:
+```
+VITE_SUPABASE_URL=https://xmqgxrspgtpamrwackdl.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key from Supabase dashboard>
+```
+Without these vars the sync UI is hidden and the app works fully offline.
+
 ## Architecture
 
 ```
 Browser (Vite/React)
-  └─ /api/analyze  →  Express proxy (server/, port 8787)
-                           └─ Anthropic API  →  claude-haiku-4-5
+  ├─ /api/analyze  →  Express proxy (server/, port 8787)
+  │                        └─ Anthropic API  →  claude-haiku-4-5
+  └─ Supabase JS client  →  Supabase (eu-west-1, project xmqgxrspgtpamrwackdl)
+                                 ├─ REST  →  workflows table (JSONB doc storage)
+                                 └─ Realtime  →  postgres_changes on workflows
 ```
 
-The API key lives server-side only. The Vite dev server proxies `/api/*` to `http://localhost:8787`.
+The Anthropic API key lives server-side only. The Vite dev server proxies `/api/*` to `http://localhost:8787`. The Supabase anon key is safe to expose in the browser (RLS enforces access).
 
 ## Data model
 
@@ -57,6 +67,8 @@ value can be edited in one place and rolled up:
 `normalizeDoc()` in `lib/persistence.ts` migrates legacy docs (old free-text `frequency` /
 `ownerRole` task fields) into these registries on import/load, so older JSON/YAML still works.
 
+The `Flow` type also carries an optional `companyName?: string` on the root flow, editable in the Inspector when no node is selected on the root canvas.
+
 **Node types:**
 - `task` — a unit of work; carries rich metadata (persona/owner, time, frequency, tools, pain points, etc.)
 - `flow` — a reference to a child `Flow`; double-click to drill in
@@ -76,16 +88,19 @@ src/
     workflowStore.ts    — Zustand store; single source of truth for the whole doc
   lib/
     seed.ts             — seed WorkflowDoc (Customer Onboarding example)
-    persistence.ts      — exportJson, exportYaml, importFile
+    persistence.ts      — exportJson, exportYaml, importFile, normalizeDoc
     api.ts              — analyzeFlow() → POST /api/analyze
+    supabase.ts         — Supabase client (null when VITE_SUPABASE_* vars absent; check supabaseConfigured before use)
+    useSupabaseSync.ts  — sync hook: debounced writes, realtime subscription, echo prevention, localStorage persistence
   components/
     Canvas.tsx          — ReactFlow canvas, drag-drop, double-click drill-in
     Sidebar.tsx         — drag palette (Task, Sub-flow, Decision, Start, End)
     Inspector.tsx       — edit metadata of the selected node; collapses to a thin rail when nothing is selected
     Breadcrumbs.tsx     — flow navigation bar
-    Toolbar.tsx         — export/import + Assumptions + Analyse triggers
+    Toolbar.tsx         — export/import + Assumptions + Analyse triggers + sync toggle (hidden when Supabase not configured)
     AnalysisPanel.tsx   — slide-over showing LLM findings (monthly savings + persona utilisation)
     SettingsPanel.tsx   — "Assumptions" slide-over: edit frequency counts & persona capacity
+    SyncPanel.tsx       — "Cloud Sync" slide-over: status, sync ID copy/share, join-by-ID, danger zone
     nodes/
       TaskNode.tsx       — task card node
       FlowNode.tsx       — sub-flow reference node
@@ -107,6 +122,8 @@ server/
 - **Model** — always `claude-haiku-4-5` in `server/analyze.ts`; change there if upgrading.
 - **Prompt caching** — the system prompt in `server/analyze.ts` uses `cache_control: { type: 'ephemeral' }` to avoid re-tokenising on repeated calls.
 - **CSS Modules** — each component has a co-located `.module.css` file; global utility classes (`.btn-primary`, `.btn-secondary`, `.btn-ghost`) are in `theme.css`.
+- **Supabase sync** — opt-in via "Sync off/on" toggle in the Toolbar. The hook (`useSupabaseSync`) debounces writes by 800 ms and uses a per-tab `sessionId` (in `sessionStorage`) to suppress echo updates. The workflow UUID is persisted in `localStorage('ff_workflow_id')` so the browser reconnects on refresh. JSON/YAML export is unaffected by sync state.
+- **Supabase DB** — project `formula_flow_poc` (ID `xmqgxrspgtpamrwackdl`, region `eu-west-1`). Single `workflows` table: `id UUID`, `doc JSONB`, `company_name TEXT`, `flow_name TEXT`, `updated_by TEXT`, timestamps. RLS is on with an open anon policy (POC). Realtime replication is enabled on the table.
 
 ## Analysis API contract
 
@@ -148,6 +165,6 @@ present only when the relevant frequency/persona data is filled in.
 
 ## Future stages
 
-1. **Supabase persistence** — replace in-memory store with Supabase Realtime; collaborative editing.
+1. ~~**Supabase persistence**~~ — **Done.** Opt-in cloud sync via `useSupabaseSync`; real-time collaborative editing via shared UUID; `workflows` table in Supabase.
 2. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
 3. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.
