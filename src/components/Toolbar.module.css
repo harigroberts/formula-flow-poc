@@ -54,6 +54,34 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
+.syncDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-mid-gray);
+  transition: background 0.2s;
+}
+
+.syncDot[data-status='synced'] {
+  background: #22c55e;
+}
+
+.syncDot[data-status='saving'],
+.syncDot[data-status='connecting'] {
+  background: var(--color-orange);
+  animation: syncPulse 1s ease-in-out infinite;
+}
+
+.syncDot[data-status='error'] {
+  background: #e63946;
+}
+
+@keyframes syncPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 .error {
   position: absolute;
   bottom: -28px;

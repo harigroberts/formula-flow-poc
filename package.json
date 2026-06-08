@@ -11,10 +11,11 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@supabase/supabase-js": "^2.108.0",
     "@xyflow/react": "^12.3.6",
     "cors": "^2.8.5",
-    "express": "^4.21.2",
     "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "js-yaml": "^4.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

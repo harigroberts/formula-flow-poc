@@ -80,6 +80,8 @@ export default function Inspector() {
     );
   }
 
+  const isRoot = flow?.id === useWorkflowStore.getState().doc.rootFlowId;
+
   // When nothing is selected, show editable properties for the current flow.
   if (!node) {
     return (
@@ -95,6 +97,18 @@ export default function Inspector() {
           <h2 className={styles.heading}>Flow properties</h2>
         </div>
         <div className={styles.fields}>
+          {isRoot && (
+            <Field label="Company name">
+              <input
+                className={styles.input}
+                value={flow?.companyName ?? ''}
+                onChange={(e) =>
+                  updateCurrentFlow({ companyName: e.target.value || undefined })
+                }
+                placeholder="e.g. Acme Corp"
+              />
+            </Field>
+          )}
           <Field label="Name">
             <input
               className={styles.input}

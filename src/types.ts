@@ -53,6 +53,7 @@ export interface Flow {
   description: string;
   department?: string;
   parentFlowId: string | null;
+  companyName?: string;
 }
 
 /**
