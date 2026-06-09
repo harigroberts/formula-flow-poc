@@ -40,6 +40,8 @@ export function useSupabaseSync(syncEnabled: boolean): SyncAPI {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ref so write closures always see the latest id without being deps
   const workflowIdRef = useRef<string | null>(null);
+  // Suppress writes that are triggered by an incoming realtime update
+  const isRemoteUpdateRef = useRef(false);
 
   const { loadDoc } = useWorkflowStore();
 
@@ -60,11 +62,16 @@ export function useSupabaseSync(syncEnabled: boolean): SyncAPI {
     (payload: { new: Record<string, unknown> }) => {
       if (payload.new.updated_by === sessionId) return; // echo prevention
       try {
+        // Flag suppresses the debounced write-back that would otherwise
+        // be triggered by the store subscription when loadDoc fires.
+        isRemoteUpdateRef.current = true;
         loadDoc(normalizeDoc(payload.new.doc as WorkflowDoc));
+        isRemoteUpdateRef.current = false;
         setRemoteBanner(true);
         setTimeout(() => setRemoteBanner(false), 3000);
         setStatus('synced');
       } catch {
+        isRemoteUpdateRef.current = false;
         // malformed remote doc — ignore silently
       }
     },
@@ -121,6 +128,7 @@ export function useSupabaseSync(syncEnabled: boolean): SyncAPI {
     if (!syncEnabled || !supabase) return;
 
     const unsub = useWorkflowStore.subscribe(() => {
+      if (isRemoteUpdateRef.current) return; // change came from realtime, not the user
       const id = workflowIdRef.current;
       if (!id) return;
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -152,18 +160,26 @@ export function useSupabaseSync(syncEnabled: boolean): SyncAPI {
       const storedId = localStorage.getItem(WORKFLOW_KEY);
 
       if (storedId) {
-        const { data } = await supabase
+        // Push current local state to the existing row rather than pulling
+        // the remote back — "sync on" means "start syncing what I have now".
+        const doc = useWorkflowStore.getState().getDoc();
+        const rootFlow = doc.flows.find((f) => f.id === doc.rootFlowId);
+        const { data: updated, error: updateErr } = await supabase
           .from('workflows')
-          .select('id, doc')
+          .update({
+            doc: doc as unknown as Record<string, unknown>,
+            company_name: rootFlow?.companyName ?? null,
+            flow_name: rootFlow?.name ?? 'Untitled',
+            updated_by: sessionId,
+          })
           .eq('id', storedId)
-          .single();
+          .select('id');
 
-        if (data) {
-          loadDoc(normalizeDoc(data.doc as WorkflowDoc));
+        if (!updateErr && updated && updated.length > 0) {
           activateWorkflow(storedId);
           return;
         }
-        // Stale key — row no longer exists, fall through to create fresh
+        // Row no longer exists — fall through to insert a fresh one
         localStorage.removeItem(WORKFLOW_KEY);
       }
 
@@ -194,6 +210,8 @@ export function useSupabaseSync(syncEnabled: boolean): SyncAPI {
   const disableSync = useCallback(() => {
     teardown();
     workflowIdRef.current = null;
+    localStorage.removeItem(WORKFLOW_KEY);
+    setWorkflowId(null);
     setStatus('idle');
     setError(null);
   }, [teardown]);

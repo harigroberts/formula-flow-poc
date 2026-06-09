@@ -348,6 +348,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         ...state.doc,
         nodes: state.doc.nodes.filter(n => n.flowId !== state.currentFlowId),
         edges: state.doc.edges.filter(e => e.flowId !== state.currentFlowId),
+        flows: state.doc.flows.map(f =>
+          f.id === state.currentFlowId
+            ? { ...f, name: '', description: '', department: undefined, companyName: undefined }
+            : f
+        ),
       },
       selectedNodeId: null,
     }));
