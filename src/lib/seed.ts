@@ -9,6 +9,7 @@ export const seedDoc: WorkflowDoc = {
       name: 'Customer Onboarding',
       description: 'End-to-end process for onboarding a new B2B customer from signed contract to first value delivery.',
       parentFlowId: null,
+      companyName: 'ACME Ltd',
     },
     {
       id: 'flow-billing',

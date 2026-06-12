@@ -15,6 +15,14 @@
   gap: 2px;
 }
 
+.company {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-dark);
+  padding: 4px 8px;
+}
+
 .sep {
   color: var(--color-mid-gray);
   font-size: 14px;
