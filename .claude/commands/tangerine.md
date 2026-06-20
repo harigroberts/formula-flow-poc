@@ -290,9 +290,6 @@ All icons: 24×24, 1.75px stroke, `stroke-linecap="round"`, `stroke-linejoin="ro
 ## CSS import
 
 To use all tokens and semantic type classes in a project:
-
-```css
-@import url('./path/to/colors_and_type.css');
-```
-
-Or copy the file into your repo — it is fully self-contained.
+ see src/styles/tangerine for
+ - colours_and_type.css
+ - styles.css
