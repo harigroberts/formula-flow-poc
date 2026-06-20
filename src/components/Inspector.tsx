@@ -139,7 +139,6 @@ export default function Inspector() {
 
   const isTask = node.data.type === 'task';
   const isDecision = node.data.type === 'decision';
-  const isTerminal = node.data.type === 'start' || node.data.type === 'end';
   const data = node.data;
 
   const nodeTypeLabel = {
@@ -233,7 +232,108 @@ export default function Inspector() {
           </Field>
         )}
 
-        {(isDecision || isTerminal) && null}
+        {isDecision && (() => {
+          const dd = data as DecisionData;
+          const ic = dd.informationCompleteness;
+          const basis = dd.decisionBasis;
+          const showGate = (ic !== undefined && ic !== 'full') || basis === 'intuition';
+          const boolToStr = (v: boolean | undefined) => v === true ? 'yes' : v === false ? 'no' : '';
+          const strToBool = (v: string): boolean | undefined => v === 'yes' ? true : v === 'no' ? false : undefined;
+          return (
+            <>
+              <div className={styles.row}>
+                <Field label="Information completeness">
+                  <select
+                    className={styles.select}
+                    value={ic ?? ''}
+                    onChange={(e) => update({ informationCompleteness: (e.target.value || undefined) as DecisionData['informationCompleteness'] })}
+                  >
+                    <option value="">— Select —</option>
+                    <option value="full">Full</option>
+                    <option value="partial">Partial</option>
+                    <option value="gut_feel">Gut feel</option>
+                  </select>
+                </Field>
+                <Field label="Decision basis">
+                  <select
+                    className={styles.select}
+                    value={basis ?? ''}
+                    onChange={(e) => update({ decisionBasis: (e.target.value || undefined) as DecisionData['decisionBasis'] })}
+                  >
+                    <option value="">— Select —</option>
+                    <option value="rules">Rules</option>
+                    <option value="experience">Experience</option>
+                    <option value="intuition">Intuition</option>
+                  </select>
+                </Field>
+              </div>
+              {showGate && (
+                <>
+                  <div className={styles.row}>
+                    <Field label="Reversibility">
+                      <select
+                        className={styles.select}
+                        value={dd.reversibility ?? ''}
+                        onChange={(e) => update({ reversibility: (e.target.value || undefined) as DecisionData['reversibility'] })}
+                      >
+                        <option value="">— Select —</option>
+                        <option value="reversible">Reversible</option>
+                        <option value="hard_to_reverse">Hard to reverse</option>
+                        <option value="irreversible">Irreversible</option>
+                      </select>
+                    </Field>
+                    <Field label="Cost of error">
+                      <select
+                        className={styles.select}
+                        value={dd.costOfError ?? ''}
+                        onChange={(e) => update({ costOfError: (e.target.value || undefined) as DecisionData['costOfError'] })}
+                      >
+                        <option value="">— Select —</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </Field>
+                  </div>
+                  <Field label="Historical data exists?">
+                    <select
+                      className={styles.select}
+                      value={boolToStr(dd.historicalDataExists)}
+                      onChange={(e) => update({ historicalDataExists: strToBool(e.target.value) })}
+                    >
+                      <option value="">— Select —</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </Field>
+                  {dd.historicalDataExists === true && (
+                    <Field label="Outcome measured?">
+                      <select
+                        className={styles.select}
+                        value={boolToStr(dd.outcomeMeasured)}
+                        onChange={(e) => update({ outcomeMeasured: strToBool(e.target.value) })}
+                      >
+                        <option value="">— Select —</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
+                    </Field>
+                  )}
+                  {dd.historicalDataExists === true && dd.outcomeMeasured === true && (
+                    <Field label="Outcome data source">
+                      <input
+                        className={styles.input}
+                        value={dd.outcomeDataSource ?? ''}
+                        onChange={(e) => update({ outcomeDataSource: e.target.value || undefined })}
+                        placeholder="e.g. Salesforce closed-won/lost history"
+                      />
+                    </Field>
+                  )}
+                </>
+              )}
+            </>
+          );
+        })()}
 
         {isTask && (
           <>
@@ -253,19 +353,82 @@ export default function Inspector() {
               </select>
             </Field>
 
-            <Field label="Status">
-              <select
-                className={styles.select}
-                value={(data as TaskData).status ?? 'todo'}
-                onChange={(e) =>
-                  update({ status: e.target.value as TaskData['status'] })
-                }
-              >
-                <option value="todo">To do</option>
-                <option value="active">Active</option>
-                <option value="done">Done</option>
-              </select>
-            </Field>
+            {(() => {
+              const td = data as TaskData;
+              const ia = td.inputAccessibility;
+              const notInstant = ia !== undefined && ia !== 'instant';
+              const askOrRebuild = ia === 'ask' || ia === 'rebuild';
+              const isAsk = ia === 'ask';
+              const boolToStr = (v: boolean | undefined) => v === true ? 'yes' : v === false ? 'no' : '';
+              const strToBool = (v: string): boolean | undefined => v === 'yes' ? true : v === 'no' ? false : undefined;
+              return (
+                <>
+                  <Field label="Additional information accessibility">
+                    <select
+                      className={styles.select}
+                      value={ia ?? ''}
+                      onChange={(e) => update({ inputAccessibility: (e.target.value || undefined) as TaskData['inputAccessibility'] })}
+                    >
+                      <option value="">— Select —</option>
+                      <option value="instant">Instant — already at hand</option>
+                      <option value="search">Search — look it up</option>
+                      <option value="ask">Ask — a colleague</option>
+                      <option value="rebuild">Rebuild — recreate it</option>
+                    </select>
+                  </Field>
+                  {notInstant && (
+                    <Field label="Search time (min)">
+                      <input
+                        className={styles.input}
+                        type="number"
+                        min={0}
+                        value={td.searchTime ?? ''}
+                        onChange={(e) => update({ searchTime: Number(e.target.value) || undefined })}
+                        placeholder="0"
+                      />
+                    </Field>
+                  )}
+                  {askOrRebuild && (
+                    <Field label="Input source">
+                      <input
+                        className={styles.input}
+                        value={td.inputSource ?? ''}
+                        onChange={(e) => update({ inputSource: e.target.value || undefined })}
+                        placeholder="e.g. Senior engineer's tribal knowledge"
+                      />
+                    </Field>
+                  )}
+                  {isAsk && (
+                    <div className={styles.row}>
+                      <Field label="Knowledge captured?">
+                        <select
+                          className={styles.select}
+                          value={boolToStr(td.knowledgeCaptured)}
+                          onChange={(e) => update({ knowledgeCaptured: strToBool(e.target.value) })}
+                        >
+                          <option value="">— Select —</option>
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                        </select>
+                      </Field>
+                      <Field label="Expertise level">
+                        <select
+                          className={styles.select}
+                          value={td.expertiseLevel ?? ''}
+                          onChange={(e) => update({ expertiseLevel: (e.target.value || undefined) as TaskData['expertiseLevel'] })}
+                        >
+                          <option value="">— Select —</option>
+                          <option value="junior">Junior</option>
+                          <option value="mid">Mid</option>
+                          <option value="senior">Senior</option>
+                          <option value="expert">Expert</option>
+                        </select>
+                      </Field>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <div className={styles.row}>
               <Field label="Human time (min)">

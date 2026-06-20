@@ -70,11 +70,45 @@ value can be edited in one place and rolled up:
 The `Flow` type also carries an optional `companyName?: string` on the root flow, editable in the Inspector when no node is selected on the root canvas.
 
 **Node types:**
-- `task` — a unit of work; carries rich metadata (persona/owner, time, frequency, tools, pain points, etc.)
+- `task` — a unit of work; carries rich metadata (persona/owner, time, frequency, tools, pain points, knowledge-access, etc.)
 - `flow` — a reference to a child `Flow`; double-click to drill in
-- `decision` — a conditional gateway (diamond); outgoing edges carry `sourceHandle`/`label`/`data.branch` = `"yes"` or `"no"`
+- `decision` — a conditional gateway (diamond); outgoing edges carry `sourceHandle`/`label`/`data.branch` = `"yes"` or `"no"`. Also carries optional knowledge metadata for identifying ML/decision-support opportunities (see below).
 - `start` — pipeline entry point or sub-flow entry (doubles as entry node inside a child flow)
 - `end` — pipeline exit point or sub-flow exit (doubles as exit node inside a child flow)
+
+**Decision node knowledge metadata** (all optional; edited via progressive disclosure in the Inspector):
+
+The Inspector reveals fields in two tiers based on what the user has already entered.
+
+*Tier 1 — always shown:*
+- `informationCompleteness?: 'full' | 'partial' | 'gut_feel'` — how complete the available information is at decision time
+- `decisionBasis?: 'rules' | 'experience' | 'intuition'` — what the call is based on
+
+*Tier 2 — revealed when `informationCompleteness !== 'full'` OR `decisionBasis === 'intuition'`:*
+- `reversibility?: 'reversible' | 'hard_to_reverse' | 'irreversible'` — how easily the decision can be undone (stakes)
+- `costOfError?: 'low' | 'medium' | 'high'` — consequence of a wrong call (stakes)
+- `historicalDataExists?: boolean` — whether past outcomes have been recorded
+  - (when `true`) `outcomeMeasured?: boolean` — whether outcomes are tracked with measurable results
+    - (when `true`) `outcomeDataSource?: string` — where outcome data lives (e.g. "Salesforce closed-won/lost history")
+
+The canvas shows a small badge derived from the metadata: **ML** (green) when history + measured outcomes + source are all present; **gut-feel** (orange) when `informationCompleteness === 'gut_feel'` or `decisionBasis === 'intuition'`.
+
+Claude's analysis produces decision-node findings using this logic:
+- `informationCompleteness === 'full'` and not intuition → leave alone
+- `historicalDataExists === false` → recommend "Start logging outcomes"
+- `historicalDataExists === true && outcomeMeasured === true` → recommend decision-support / ML (priority elevated by `reversibility` / `costOfError`)
+
+**Task node knowledge-access metadata** (all optional; same progressive-disclosure pattern in the Inspector, placed where the old "Status" field was — `status`/`TaskStatus` have been removed):
+
+*Tier 1 — always shown:*
+- `inputAccessibility?: 'instant' | 'search' | 'ask' | 'rebuild'` ("Additional information accessibility") — how reachable the info this task needs is
+
+*Tier 2 — revealed by the `inputAccessibility` answer:*
+- `searchTime?: number` (minutes) — when `!== 'instant'`
+- `inputSource?: string` — when `'ask'` or `'rebuild'`
+- `knowledgeCaptured?: boolean` and `expertiseLevel?: 'junior' | 'mid' | 'senior' | 'expert'` — when `'ask'` (tacit/colleague knowledge)
+
+Task cards show a badge: **RAG/KB** (green) when `inputAccessibility === 'ask'`; **info-gap** (orange) when `'search'` / `'rebuild'`. The prompt also runs a **cross-graph pass** — when one task's `outputs` feed a downstream task that re-obtains the same info via search/ask/rebuild, that's flagged as a database/integration/hand-off opportunity. (Only the "blue" right-hand side of the design — knowledge access — is implemented; the "purple" judgement-type branch is future work.)
 
 Navigation is breadcrumb-based: entering a flow pushes it onto the breadcrumb stack; clicking a parent crumb pops back.
 
@@ -102,9 +136,9 @@ src/
     SettingsPanel.tsx   — "Assumptions" slide-over: edit frequency counts & persona capacity
     SyncPanel.tsx       — "Cloud Sync" slide-over: status, sync ID copy/share, join-by-ID, danger zone
     nodes/
-      TaskNode.tsx       — task card node
+      TaskNode.tsx       — task card node; renders RAG-KB/info-gap badge from knowledge-access metadata
       FlowNode.tsx       — sub-flow reference node
-      DecisionNode.tsx   — diamond gateway node (Yes/No branches)
+      DecisionNode.tsx   — diamond gateway node (Yes/No branches); renders ML/gut-feel badge from knowledge metadata
       StartNode.tsx      — pipeline/flow entry terminator
       EndNode.tsx        — pipeline/flow exit terminator
       TerminalNode.module.css — shared styles for Start and End nodes
@@ -166,5 +200,7 @@ present only when the relevant frequency/persona data is filled in.
 ## Future stages
 
 1. ~~**Supabase persistence**~~ — **Done.** Opt-in cloud sync via `useSupabaseSync`; real-time collaborative editing via shared UUID; `workflows` table in Supabase.
-2. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
-3. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.
+2. ~~**Decision-node knowledge metadata**~~ — **Done.** Progressive-disclosure Inspector fields (`informationCompleteness`, `decisionBasis`, + Tier-2 stakes/history fields); ML/gut-feel canvas badge; Claude produces decision-node findings.
+3. ~~**Task-node knowledge-access metadata**~~ — **Done (knowledge-access / "blue" branch).** `inputAccessibility` + Tier-2 fields; RAG-KB/info-gap badge; cross-graph pass in the prompt. The "purple" judgement-type branch (`judgementType`, automation/ML signals) remains to do.
+4. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
+5. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.

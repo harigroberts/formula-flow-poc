@@ -203,7 +203,11 @@ export function useSupabaseSync(syncEnabled: boolean): SyncAPI {
       activateWorkflow(inserted.id);
     } catch (e) {
       setStatus('error');
-      setError(e instanceof Error ? e.message : 'Failed to connect');
+      const msg =
+        e instanceof Error
+          ? e.message
+          : (e as { message?: string })?.message ?? 'Failed to connect';
+      setError(msg);
     }
   }, [loadDoc, activateWorkflow]);
 

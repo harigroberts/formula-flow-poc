@@ -27,13 +27,6 @@
   margin-bottom: 4px;
 }
 
-.statusDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
 .name {
   font-family: var(--font-heading);
   font-size: 13px;
@@ -77,4 +70,14 @@
 .badgeAuto {
   background: rgba(120, 140, 93, 0.14);
   color: var(--color-green);
+}
+
+.badgeKnowRag {
+  background: color-mix(in srgb, var(--color-green) 14%, transparent);
+  color: var(--color-green);
+}
+
+.badgeKnowGap {
+  background: color-mix(in srgb, var(--color-orange) 14%, transparent);
+  color: var(--color-orange);
 }

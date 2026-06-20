@@ -77,3 +77,30 @@
   color: var(--color-orange);
   pointer-events: none;
 }
+
+.badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-family: var(--font-heading);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.badge.ml {
+  background: color-mix(in srgb, var(--color-green) 12%, transparent);
+  color: var(--color-green);
+  border: 1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
+}
+
+.badge.gut {
+  background: color-mix(in srgb, var(--color-orange) 12%, transparent);
+  color: var(--color-orange);
+  border: 1px solid color-mix(in srgb, var(--color-orange) 30%, transparent);
+}

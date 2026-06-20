@@ -151,7 +151,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         type: 'task',
         name: 'New Task',
         description: '',
-        status: 'todo',
         isManual: true,
       } as TaskData,
     };
