@@ -5,7 +5,7 @@
   justify-content: space-between;
   padding: 0 20px;
   background: var(--color-dark);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(253, 247, 236, 0.08);
   flex-shrink: 0;
   position: relative;
 }
@@ -35,23 +35,25 @@
   gap: 8px;
 }
 
+/* Dark-bar overrides — global btn-* are tuned for light surfaces */
 .actions :global(.btn-ghost) {
-  color: var(--color-mid-gray);
+  color: var(--fg-muted);
 }
 
 .actions :global(.btn-ghost:hover) {
-  color: var(--color-light);
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-paper);
+  background: rgba(253, 247, 236, 0.10);
 }
 
 .actions :global(.btn-secondary) {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--color-light);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(253, 247, 236, 0.08);
+  color: var(--color-paper);
+  border-color: rgba(253, 247, 236, 0.18);
 }
 
 .actions :global(.btn-secondary:hover) {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(253, 247, 236, 0.16);
+  color: var(--color-paper);
 }
 
 .syncDot {
@@ -60,11 +62,11 @@
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--color-mid-gray);
-  transition: background 0.2s;
+  transition: background var(--dur-base);
 }
 
 .syncDot[data-status='synced'] {
-  background: #22c55e;
+  background: var(--color-success);
 }
 
 .syncDot[data-status='saving'],
@@ -74,7 +76,7 @@
 }
 
 .syncDot[data-status='error'] {
-  background: #e63946;
+  background: var(--color-error);
 }
 
 @keyframes syncPulse {
@@ -87,8 +89,8 @@
   bottom: -28px;
   left: 50%;
   transform: translateX(-50%);
-  background: #e63946;
-  color: white;
+  background: var(--color-error);
+  color: var(--color-paper);
   font-size: 12px;
   padding: 4px 12px;
   border-radius: var(--radius-sm);

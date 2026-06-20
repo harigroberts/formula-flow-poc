@@ -1,7 +1,7 @@
 .sidebar {
   width: var(--sidebar-width);
-  background: var(--color-light);
-  border-right: 1px solid var(--color-light-gray);
+  background: var(--color-cream);
+  border-right: 1px solid var(--line);
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
@@ -16,12 +16,13 @@
   gap: 8px;
 }
 
+/* Eyebrow style — uppercase, wide tracking */
 .heading {
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--color-mid-gray);
+  color: var(--fg-muted);
 }
 
 .hint {
@@ -36,20 +37,27 @@
   gap: 10px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  border: 1.5px dashed var(--color-light-gray);
+  border: 1.5px dashed var(--line);
   cursor: grab;
   background: var(--color-light);
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background   var(--dur-fast) var(--ease-out),
+    transform    var(--dur-fast) var(--ease-out),
+    box-shadow   var(--dur-fast) var(--ease-out);
   user-select: none;
 }
 
 .item:hover {
   border-color: var(--color-orange);
-  background: rgba(217, 119, 87, 0.04);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .item:active {
   cursor: grabbing;
+  transform: translateY(0);
 }
 
 .icon {

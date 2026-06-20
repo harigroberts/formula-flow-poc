@@ -3,8 +3,8 @@
   display: flex;
   align-items: center;
   padding: 0 16px;
-  background: var(--color-light);
-  border-bottom: 1px solid var(--color-light-gray);
+  background: var(--color-linen);
+  border-bottom: 1px solid var(--line);
   gap: 2px;
   flex-shrink: 0;
 }
@@ -39,12 +39,14 @@
   border: none;
   background: none;
   cursor: pointer;
-  transition: color 0.1s, background 0.1s;
+  transition:
+    color      var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
 }
 
 .crumb:not(.active):hover {
-  color: var(--color-dark);
-  background: var(--color-light-gray);
+  color: var(--color-orange);
+  background: var(--accent-soft);
 }
 
 .active {

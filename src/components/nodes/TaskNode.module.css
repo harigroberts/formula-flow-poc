@@ -1,23 +1,28 @@
 .node {
-  background: var(--color-light);
-  border: 1.5px solid var(--color-light-gray);
+  background: var(--color-paper);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius-md);
   padding: 12px 14px;
   min-width: 180px;
   max-width: 240px;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  transition:
+    box-shadow   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform    var(--dur-fast) var(--ease-out);
 }
 
 .node:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--color-orange);
+  transform: translateY(-1px);
 }
 
 .selected {
   border-color: var(--color-orange) !important;
-  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.18), var(--shadow-md) !important;
+  box-shadow: 0 0 0 3px rgba(232, 118, 58, 0.18), var(--shadow-md) !important;
+  transform: translateY(-1px);
 }
 
 .header {
@@ -55,20 +60,21 @@
 .badge {
   font-family: var(--font-heading);
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--color-light-gray);
-  color: var(--color-dark);
+  border-radius: var(--radius-pill);
+  background: var(--line);
+  color: var(--fg-muted);
 }
 
 .badgeManual {
-  background: rgba(217, 119, 87, 0.14);
+  background: color-mix(in srgb, var(--color-orange) 14%, transparent);
   color: var(--color-orange);
 }
 
 .badgeAuto {
-  background: rgba(120, 140, 93, 0.14);
+  background: color-mix(in srgb, var(--color-green) 14%, transparent);
   color: var(--color-green);
 }
 
