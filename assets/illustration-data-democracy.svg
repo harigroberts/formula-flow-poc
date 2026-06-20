@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 340" fill="none">
+  <defs>
+    <radialGradient id="glow-dd" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F2A26A" stop-opacity="0.6"></stop>
+      <stop offset="100%" stop-color="#F2A26A" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+  
+  <circle cx="260" cy="170" r="110" fill="url(#glow-dd)"></circle>
+  
+  <g stroke="#3E2A1E" stroke-width="1.8" stroke-linejoin="round" fill="#FFFCF6">
+    <g transform="translate(60 80) rotate(-10)">
+      <path d="M0 0 C24 -2 44 -2 60 0 C60 28 60 56 60 80 C40 82 20 82 0 80 Z"></path>
+      <path d="M8 18 C20 17 36 17 52 18" stroke-width="1.4" fill="none" opacity="0.6"></path>
+      <path d="M8 28 C20 27 36 27 52 28" stroke-width="1.4" fill="none" opacity="0.6"></path>
+      <path d="M8 38 C20 37 30 37 40 38" stroke-width="1.4" fill="none" opacity="0.6"></path>
+    </g>
+    <g transform="translate(410 50) rotate(8)">
+      <path d="M0 0 C24 -2 44 -2 60 0 C60 28 60 56 60 80 C40 82 20 82 0 80 Z"></path>
+      <path d="M8 18 C20 17 36 17 52 18" stroke-width="1.4" fill="none" opacity="0.6"></path>
+      <path d="M8 28 C20 27 36 27 52 28" stroke-width="1.4" fill="none" opacity="0.6"></path>
+      <path d="M8 38 C20 37 30 37 40 38" stroke-width="1.4" fill="none" opacity="0.6"></path>
+    </g>
+    <g transform="translate(40 230) rotate(12)">
+      <path d="M0 0 C24 -2 44 -2 60 0 C60 28 60 56 60 80 C40 82 20 82 0 80 Z"></path>
+      <path d="M8 18 C20 17 36 17 52 18" stroke-width="1.4" fill="none" opacity="0.6"></path>
+      <path d="M8 30 C20 29 30 29 40 30" stroke-width="1.4" fill="none" opacity="0.6"></path>
+    </g>
+    <g transform="translate(420 230) rotate(-8)">
+      <path d="M0 0 C24 -2 44 -2 60 0 C60 28 60 56 60 80 C40 82 20 82 0 80 Z"></path>
+      <path d="M8 18 C20 17 36 17 52 18" stroke-width="1.4" fill="none" opacity="0.6"></path>
+      <path d="M8 30 C20 29 34 29 48 30" stroke-width="1.4" fill="none" opacity="0.6"></path>
+    </g>
+  </g>
+  
+  <g stroke="#E8763A" stroke-width="1.6" stroke-linecap="round" fill="none" stroke-dasharray="2 6">
+    <path d="M130 115 C170 130 200 150 220 165"></path>
+    <path d="M410 100 C370 130 330 150 300 165"></path>
+    <path d="M110 260 C160 230 200 210 225 195"></path>
+    <path d="M410 260 C370 235 330 215 300 195"></path>
+  </g>
+  
+  <g transform="translate(260 175)">
+    
+    <path d="M-70 -10 C-70 38 -40 60 0 60 C40 60 70 38 70 -10 C50 -4 20 0 0 0 C-20 0 -50 -4 -70 -10 Z" fill="#E8763A" stroke="#3E2A1E" stroke-width="2" stroke-linejoin="round"></path>
+    
+    <g stroke="#3E2A1E" stroke-width="1.8" fill="#FDF7EC">
+      <circle cx="-30" cy="-35" r="10"></circle>
+      <circle cx="15" cy="-50" r="10"></circle>
+      <circle cx="40" cy="-20" r="10"></circle>
+      <circle cx="-8" cy="-10" r="10"></circle>
+      <circle cx="-48" cy="-5" r="8"></circle>
+    </g>
+    <g stroke="#3E2A1E" stroke-width="1.4" fill="none" opacity="0.8">
+      <path d="M-30 -35 C-15 -40 0 -45 15 -50"></path>
+      <path d="M15 -50 C25 -38 32 -28 40 -20"></path>
+      <path d="M-30 -35 C-20 -25 -14 -15 -8 -10"></path>
+      <path d="M-8 -10 C10 -12 25 -15 40 -20"></path>
+      <path d="M-48 -5 C-35 -10 -22 -10 -8 -10"></path>
+    </g>
+    
+    <path d="M-60 -6 C-40 -2 -20 0 0 0" stroke="#FBE3C8" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.6"></path>
+  </g>
+</svg>

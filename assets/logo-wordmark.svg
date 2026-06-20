@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 56" fill="none">
+  <defs>
+    <radialGradient id="tg-peel-lg" cx="38%" cy="36%" r="72%">
+      <stop offset="0%" stop-color="#F28A4B"></stop>
+      <stop offset="60%" stop-color="#D9591C"></stop>
+      <stop offset="100%" stop-color="#C85A24"></stop>
+    </radialGradient>
+  </defs>
+  
+  <g transform="translate(4,4)">
+    <path d="M24 4 C33 3.6 42 12 41.6 24 C41.2 35.6 33.4 44 24 43.8 C14.2 43.6 6 35 6.1 23.6 C6.2 13 14.8 4.4 24 4 Z" fill="url(#tg-peel-lg)" stroke="#3E2A1E" stroke-width="1.4" stroke-linejoin="round"></path>
+    <path d="M13 14 C16 11 20 10 24 10.5" stroke="#FBE3C8" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.75"></path>
+    <circle cx="24" cy="7.2" r="1.6" fill="#7A3B22"></circle>
+    <path d="M25 7.5 C29 2 36 1.4 39 4.2 C37 8.8 31.6 11 26 9.6" fill="#6B7A3F" stroke="#3E2A1E" stroke-width="1.2" stroke-linejoin="round"></path>
+  </g>
+  
+  <text x="60" y="38" font-family="Work Sans, Georgia, serif" font-weight="600" font-size="32" letter-spacing="-1" fill="#3E2A1E">Tangerine</text>
+</svg>
