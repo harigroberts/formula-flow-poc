@@ -45,23 +45,23 @@
   align-items: center;
   justify-content: space-between;
   padding: 18px 20px;
-  border-bottom: 1px solid rgba(253, 247, 236, 0.08);
-  background: var(--color-dark);
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--accent-soft);
 }
 
 .heading {
   font-size: 16px;
   font-weight: 600;
-  color: var(--color-light);
+  color: var(--color-clay);
 }
 
 .header :global(.btn-ghost) {
-  color: var(--fg-muted);
+  color: var(--color-clay);
 }
 
 .header :global(.btn-ghost:hover) {
-  color: var(--color-paper);
-  background: rgba(253, 247, 236, 0.10);
+  color: var(--color-ember);
+  background: rgba(200, 90, 36, 0.10);
 }
 
 .error {

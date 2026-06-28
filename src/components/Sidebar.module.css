@@ -71,6 +71,11 @@
   line-height: 1;
 }
 
+.iconXL {
+  font-size: 32px;
+  line-height: 1;
+}
+
 .label {
   font-family: var(--font-heading);
   font-size: 13px;
