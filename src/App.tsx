@@ -1,26 +1,24 @@
 import { useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { useWorkflowStore } from '@/store/workflowStore';
-import { analyzeFlow } from '@/lib/api';
 import { supabaseConfigured } from '@/lib/supabase';
 import { useSupabaseSync } from '@/lib/useSupabaseSync';
+import { useAnalysis } from '@/lib/useAnalysis';
 import Toolbar from '@/components/Toolbar';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Sidebar from '@/components/Sidebar';
 import Canvas from '@/components/Canvas';
 import Inspector from '@/components/Inspector';
 import AnalysisPanel from '@/components/AnalysisPanel';
+import AnalysisDepthDialog from '@/components/AnalysisDepthDialog';
 import SettingsPanel from '@/components/SettingsPanel';
 import SyncPanel from '@/components/SyncPanel';
-import type { AnalysisResult } from '@/types';
+import type { AnalysisDepth } from '@/types';
 import styles from './App.module.css';
 
 export default function App() {
-  const { getDoc } = useWorkflowStore();
+  const { analysis, stage, error: analysisError, run: runAnalysis } = useAnalysis();
 
-  const [analysing, setAnalysing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [showDepthDialog, setShowDepthDialog] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -49,27 +47,18 @@ export default function App() {
     }
   };
 
-  const handleAnalyse = async () => {
-    setAnalysing(true);
-    setAnalysisError(null);
+  const handleRunAnalysis = (depth: AnalysisDepth, fresh: boolean) => {
+    setShowDepthDialog(false);
     setShowAnalysis(true);
-    try {
-      const result = await analyzeFlow(getDoc(), getDoc().rootFlowId);
-      setAnalysisResult(result);
-    } catch (err) {
-      setAnalysisError(err instanceof Error ? err.message : 'Unknown error');
-      setAnalysisResult(null);
-    } finally {
-      setAnalysing(false);
-    }
+    void runAnalysis(depth, fresh);
   };
 
   return (
     <ReactFlowProvider>
       <div className={styles.app}>
         <Toolbar
-          onAnalyse={handleAnalyse}
-          analysing={analysing}
+          onAnalyse={() => setShowDepthDialog(true)}
+          analysing={stage !== 'idle' && stage !== 'done'}
           onOpenAssumptions={() => setShowSettings(true)}
           syncEnabled={syncEnabled}
           onToggleSync={handleToggleSync}
@@ -88,11 +77,17 @@ export default function App() {
           </div>
         </div>
 
+        {showDepthDialog && (
+          <AnalysisDepthDialog
+            onRun={handleRunAnalysis}
+            onClose={() => setShowDepthDialog(false)}
+          />
+        )}
         {showAnalysis && (
           <AnalysisPanel
-            result={analysisResult}
+            analysis={analysis}
+            stage={stage}
             error={analysisError}
-            loading={analysing}
             onClose={() => setShowAnalysis(false)}
           />
         )}

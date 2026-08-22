@@ -64,6 +64,218 @@
   background: rgba(200, 90, 36, 0.10);
 }
 
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--color-cream);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.tab:hover {
+  color: var(--color-clay);
+}
+
+.tabActive {
+  color: var(--color-ember);
+  border-bottom-color: var(--color-tangerine);
+}
+
+.tabCount {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-subtle);
+  background: var(--line);
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+}
+
+.tabActive .tabCount {
+  color: var(--color-ember);
+  background: var(--accent-soft);
+}
+
+.tabDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-orange);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% { opacity: 0.25; }
+}
+
+/* Single-column body used by the sub-flow and strategic tabs. */
+.singleCol {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.levelIntro {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.cardMuted {
+  background: var(--color-cream);
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.cardMuted:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.badgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cachedRow {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.cachedBadge {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-sky);
+  background: color-mix(in srgb, var(--color-sky) 16%, transparent);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.verdictHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.noGainBadge {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  background: var(--surface-sunk);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.verdict {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--color-ember);
+}
+
+.supersedes {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-sky);
+  background: color-mix(in srgb, var(--color-sky) 14%, transparent);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+}
+
+.risks {
+  margin: 0;
+  padding-left: 2px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-mid-gray);
+}
+
+.spans,
+.sequencing {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.verdictBanner,
+.verdictBannerMuted {
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.verdictBanner {
+  background: var(--accent-soft);
+  border: 1px solid var(--color-tangerine);
+}
+
+.verdictBannerMuted {
+  background: var(--color-cream);
+  border: 1px dashed var(--line-strong);
+}
+
+.verdictLabel {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--fg-muted);
+}
+
+.verdictBanner .verdictLabel {
+  color: var(--color-ember);
+}
+
+.verdictText {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.55;
+  color: var(--color-dark);
+}
+
+.strategicSummary {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-dark);
+}
+
 .error {
   margin: 16px 20px;
   padding: 12px 14px;

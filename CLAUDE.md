@@ -23,8 +23,9 @@ Without these vars the sync UI is hidden and the app works fully offline.
 
 ```
 Browser (Vite/React)
-  ├─ /api/analyze  →  Express proxy (server/, port 8787)
-  │                        └─ Anthropic API  →  claude-haiku-4-5
+  ├─ /api/analyze{,/subflow,/strategic}  →  Express proxy (server/, port 8787)
+  │                        └─ Anthropic API  →  claude-haiku-4-5  (level 1: per-task)
+  │                                          →  claude-opus-5     (levels 2-3: sub-flow, strategic)
   └─ Supabase JS client  →  Supabase (eu-west-1, project xmqgxrspgtpamrwackdl)
                                  ├─ REST  →  workflows table (JSONB doc storage)
                                  └─ Realtime  →  postgres_changes on workflows
@@ -142,7 +143,9 @@ src/
   lib/
     seed.ts             — seed WorkflowDoc (Customer Onboarding example)
     persistence.ts      — exportJson, exportYaml, importFile, normalizeDoc
-    api.ts              — analyzeFlow() → POST /api/analyze
+    api.ts              — analyzeTasks / analyzeSubFlow / analyzeStrategic → the three /api/analyze* endpoints
+    analysisRunner.ts   — chains the three analysis levels, feeding each into the next; emits progress per stage
+    useAnalysis.ts      — hook owning the multi-level run (result, stage, error); kept out of the store on purpose
     supabase.ts         — Supabase client (null when VITE_SUPABASE_* vars absent; check supabaseConfigured before use)
     useSupabaseSync.ts  — sync hook: debounced writes, realtime subscription, echo prevention, localStorage persistence
   components/
@@ -151,7 +154,8 @@ src/
     Inspector.tsx       — edit metadata of the selected node; collapses to a thin rail when nothing is selected
     Breadcrumbs.tsx     — flow navigation bar
     Toolbar.tsx         — export/import + Assumptions + Analyse triggers + sync toggle (hidden when Supabase not configured)
-    AnalysisPanel.tsx   — slide-over showing LLM findings (monthly savings + persona utilisation)
+    AnalysisPanel.tsx   — slide-over with a tab per level (Tasks / Sub-flows / Strategy), filling in as each pass lands
+    AnalysisDepthDialog.tsx — modal shown on "Analyse": pick how deep to run (tasks / +sub-flows / +strategic)
     SettingsPanel.tsx   — "Assumptions" slide-over: edit frequency counts & persona capacity
     SyncPanel.tsx       — "Cloud Sync" slide-over: status, sync ID copy/share, join-by-ID, danger zone
     nodes/
@@ -162,9 +166,15 @@ src/
       EndNode.tsx        — pipeline/flow exit terminator
       TerminalNode.module.css — shared styles for Start and End nodes
 server/
-  index.ts              — Express app; POST /api/analyze, GET /api/health
-  prompt.ts             — static system prompt with Claude product catalogue
-  analyze.ts            — Anthropic SDK call with prompt caching
+  index.ts              — Express app; POST /api/analyze{,/subflow,/strategic}, GET /api/health
+  analyze.ts            — the three Anthropic SDK calls, prompt caching, JSON parsing, LEVELS descriptor
+  cache.ts              — analysis result cache: canonical hashing + Supabase read/write
+  schemas.ts            — JSON schemas constraining the level-2 / level-3 structured outputs
+  prompts/
+    shared.ts           — SHARED_CONTEXT: node vocabulary, registries, product catalogue (all three levels)
+    task.ts             — TASK_PROMPT (level 1, per-node)
+    subflow.ts          — SUBFLOW_PROMPT (level 2, one sub-flow as an integrated whole)
+    strategic.ts        — STRATEGIC_PROMPT (level 3, the whole workflow as one system)
 ```
 
 ## Conventions
@@ -176,24 +186,98 @@ server/
   name); `FlowNode` must call `useUpdateNodeInternals()` whenever that handle set changes, and must select
   from the store via `useShallow` over a flat string array so React Flow doesn't see a new snapshot each render.
 - **Org-wide assumptions** — frequency counts and personas live on the doc and are edited in the Assumptions slide-over; tasks reference them by id (`frequencyId` / `personaId`), never by free text.
-- **Model** — always `claude-haiku-4-5` in `server/analyze.ts`; change there if upgrading.
-- **Prompt caching** — the system prompt in `server/analyze.ts` uses `cache_control: { type: 'ephemeral' }` to avoid re-tokenising on repeated calls.
+- **Models** — two, both declared at the top of `server/analyze.ts`: `TASK_MODEL` (`claude-haiku-4-5`) for the
+  high-volume per-node pass, `INTEGRATION_MODEL` (`claude-opus-5`) for the two integrative passes, which run with
+  adaptive thinking at `effort: 'high'` and are **streamed** (thinking tokens count toward `max_tokens`).
+- **Prompt caching** — the system is an array of two `cache_control: { type: 'ephemeral' }` blocks:
+  `SHARED_CONTEXT` then the level-specific prompt. Because the shared block is byte-identical across levels, the
+  two Opus passes and the N sub-flow calls share a cached prefix. Cache is per-model, so the Haiku pass caches
+  separately. Verify with the `[analyze:*] … cache_read=` line each call logs.
+- **Structured outputs** — levels 2 and 3 constrain their replies with `output_config.format` against the schemas
+  in `server/schemas.ts`. Strict schemas need every property in `required`, so optional fields are declared
+  nullable and `stripNulls()` in `analyze.ts` converts the nulls back to absent keys. Level 1 stays on
+  prompt-instructed JSON.
+- **"No improvement" is a real answer** — levels 2 and 3 must say so explicitly when the level below already has
+  it right. That's enforced in three places, and all three need to stay in step: the prompts tell the model to
+  default to "no gain", the schemas make `improvesOnTaskLevel` / `improvesOnLowerLevels` and `verdict` required,
+  and `AnalysisPanel` renders that case as a distinct muted card rather than hiding it.
+- **Analysis cache** — `server/cache.ts` stores every level's result in the `analysis_cache` table, keyed by a
+  sha256 of the canonicalised input. It is **server-side because the key must include the prompt text and model
+  id** — editing a prompt has to invalidate that level's entries, and the browser never sees the prompts. The
+  server reads the same `VITE_SUPABASE_*` vars from `.env`; when they're absent, caching is a silent no-op.
+  **Every Supabase call falls through on error — a broken cache must never fail an analysis.**
+- **Cache key scoping** — each level is keyed on *the slice of the graph it owns*, not on everything sent to the
+  model. `EXCLUDE_FROM_KEY` in `cache.ts` drops the findings a level receives from the level below
+  (`taskFindings`, `childAnalyses`, `subFlowAnalyses`). So editing one sub-flow re-runs that sub-flow plus the
+  two whole-doc levels, while the *other* sub-flows keep their cached verdicts. The accepted tradeoff: a cached
+  sub-flow verdict may have been computed against slightly older task findings.
+- **What keeps the hit rate up** — three things are load-bearing, not cosmetic, and breaking any of them makes
+  the cache miss constantly:
+  1. `slimNode` / `slimEdge` in `lib/api.ts` — React Flow writes `selected` onto a node or edge when you click
+     it, so without slimming, merely selecting something on the canvas changes the payload.
+  2. `canonical()` in `cache.ts` sorts object keys and id-bearing arrays — the store rebuilds arrays as
+     `[...otherNodes, ...updated]` on every change, so `doc.nodes` reorders during ordinary editing.
+  3. `parentContext.exits` must come from `getFlowExits()` (y-ordered, id tie-break), never from filtering
+     `doc.nodes` directly — that gives arbitrary store order, which is both wrong for the model and unstable.
+  Plain string arrays (`tools`, `inputs`, `outputs`, `exits`) are deliberately *not* sorted; their order means
+  something.
 - **CSS Modules** — each component has a co-located `.module.css` file; global utility classes (`.btn-primary`, `.btn-secondary`, `.btn-ghost`) are in `theme.css`.
 - **Supabase sync** — opt-in via "Sync off/on" toggle in the Toolbar. The hook (`useSupabaseSync`) debounces writes by 800 ms and uses a per-tab `sessionId` (in `sessionStorage`) to suppress echo updates. The workflow UUID is persisted in `localStorage('ff_workflow_id')` so the browser reconnects on refresh. JSON/YAML export is unaffected by sync state.
-- **Supabase DB** — project `formula_flow_poc` (ID `xmqgxrspgtpamrwackdl`, region `eu-west-1`). Single `workflows` table: `id UUID`, `doc JSONB`, `company_name TEXT`, `flow_name TEXT`, `updated_by TEXT`, timestamps. RLS is on with an open anon policy (POC). Realtime replication is enabled on the table.
+- **Supabase DB** — project `formula_flow_poc` (ID `xmqgxrspgtpamrwackdl`, region `eu-west-1`). Two tables, both
+  with RLS on and an open `anon_all` policy (POC):
+  - `workflows` — `id UUID`, `doc JSONB`, `company_name TEXT`, `flow_name TEXT`, `updated_by TEXT`, timestamps.
+    Realtime replication is enabled on this table.
+  - `analysis_cache` — `cache_key TEXT PK`, `level TEXT` (`tasks`/`subflow`/`strategic`), `model TEXT`,
+    `prompt_hash TEXT`, `input JSONB`, `output JSONB`, `hit_count INT`, timestamps. Plus a
+    `bump_cache_hit(key)` SQL function, because supabase-js can't express `hit_count = hit_count + 1` directly.
+    No realtime. Safe to `truncate` at any time — it only costs the next run its cache hits.
 
 ## Analysis API contract
 
-**Request** `POST /api/analyze`:
-```json
-{ "flow": Flow, "nodes": WFNode[], "edges": WFEdge[],
-  "frequencies": FrequencyCategory[], "personas": Persona[] }
+Analysis runs in **three chained levels**, each taking the level(s) below it as input. The
+client orchestrates them (`lib/analysisRunner.ts`) rather than the server, so the panel can
+fill in level by level. The user picks how deep to go in the depth dialog; `AnalysisDepth`
+(`'tasks' | 'subflows' | 'strategic'`) stops the chain early.
+
+```
+runAnalysis(doc, depth, onProgress, { fresh })
+  ├─ 1. POST /api/analyze            whole doc                     → AnalysisResult
+  ├─ 2. POST /api/analyze/subflow    per non-root flow, deepest     → SubFlowAnalysis
+  │        tier first, parallel within a tier; fed that flow's
+  │        task findings + any nested sub-flow analyses
+  └─ 3. POST /api/analyze/strategic  whole doc + all task findings  → StrategicAnalysis
+           + all sub-flow analyses
 ```
 
-The `frequencies`/`personas` registries let Claude join each task to its monthly run count
-and its owner's capacity, so it can return monthly totals and persona utilisation.
+Every route is cached (see the Caching conventions above). Append **`?fresh=1`** to bypass the
+lookup and overwrite the stored entry — it's a query param rather than a body field precisely so
+the body stays byte-identical to what gets hashed. The "Ignore cached results" checkbox in the
+depth dialog sets it. Each response carries **`X-Analysis-Cache: hit | miss | bypass | off`**
+(`off` = Supabase not configured); `cors()` lists it in `exposedHeaders`, without which the browser
+cannot read it and the "cached" badge silently never appears. The client surfaces this as
+`MultiLevelAnalysis.cached`, keyed by `'tasks'`, `'strategic'`, or a sub-flow's `flowId`.
 
-**Response** `AnalysisResult`:
+Every request carries the shared graph and registry fields:
+
+```json
+{ "flows": Flow[], "nodes": WFNode[], "edges": WFEdge[],
+  "frequencies": FrequencyCategory[], "personas": Persona[], "departments": Department[] }
+```
+
+Nodes and edges are slimmed by `slimNode()` / `slimEdge()` in `lib/api.ts` — React Flow's canvas geometry and selection
+state are stripped, since the payload is echoed through all three passes. The `frequencies` /
+`personas` registries let Claude join each task to its monthly run count and its owner's
+capacity; `departments` lets the strategic pass see cross-department hand-offs.
+
+Level 2 additionally sends `{ flow, parentContext: { parentFlowName, exits }, taskFindings,
+childAnalyses }`, scoped to that one flow. Level 3 additionally sends `{ taskFindings,
+subFlowAnalyses }`. The findings fields are sent to the model but excluded from the cache key —
+see **Cache key scoping** above.
+
+Sub-flows with fewer than two task/decision nodes are skipped — there is no integration story
+in a single node.
+
+**Level 1 response** `AnalysisResult`:
 ```json
 {
   "findings": [
@@ -220,10 +304,59 @@ and its owner's capacity, so it can return monthly totals and persona utilisatio
 `estMonthlyTimeSaved`, `totalMonthlyTimeSaved`, and `personaUtilisation` are optional —
 present only when the relevant frequency/persona data is filled in.
 
+**Level 2 response** `SubFlowAnalysis` — one per sub-flow:
+```json
+{
+  "flowId": "flow-billing",
+  "flowName": "Billing Setup",
+  "improvesOnTaskLevel": true,
+  "verdict": "All three billing tasks are one linear Salesforce→Stripe pipeline run by the same person …",
+  "recommendation": "Build a single Closed-Won-triggered billing agent that provisions customer, subscription and invoice in one transaction.",
+  "claudeProduct": "Claude Managed Agents",
+  "supersedesNodeIds": ["n-stripe-customer", "n-subscription", "n-invoice"],
+  "estMonthlyTimeSaved": 600,
+  "incrementalMonthlyTimeSaved": 150,
+  "rationale": "…",
+  "confidence": "medium",
+  "risks": ["Stripe webhook reliability"]
+}
+```
+
+When `improvesOnTaskLevel` is `false`, only `verdict`, `rationale` and `confidence` accompany it —
+the verdict carries the explicit reason no integrated approach beats task-by-task for this sub-flow.
+
+**Level 3 response** `StrategicAnalysis`:
+```json
+{
+  "improvesOnLowerLevels": true,
+  "verdict": "The same contract facts are re-extracted in all three flows …",
+  "summary": "<executive recommendation with a suggested order>",
+  "initiatives": [
+    {
+      "title": "Canonical onboarding record",
+      "recommendation": "Extract the contract once and serve all three departments.",
+      "claudeProduct": "Claude API / Anthropic SDK",
+      "spansFlowIds": ["flow-root", "flow-billing", "flow-provisioning"],
+      "supersedes": { "nodeIds": ["n-crm"], "flowIds": [] },
+      "estMonthlyTimeSaved": 240,
+      "incrementalMonthlyTimeSaved": 80,
+      "sequencing": "Phase 1 — prerequisite for both sub-flow agents",
+      "rationale": "…",
+      "confidence": "medium"
+    }
+  ],
+  "totalIncrementalMonthlyTimeSaved": 180
+}
+```
+
+`initiatives` is empty when `improvesOnLowerLevels` is `false`. Both levels report
+`incrementalMonthlyTimeSaved` — the gain **beyond** the levels below, never a re-count of them.
+
 ## Future stages
 
 1. ~~**Supabase persistence**~~ — **Done.** Opt-in cloud sync via `useSupabaseSync`; real-time collaborative editing via shared UUID; `workflows` table in Supabase.
 2. ~~**Decision-node knowledge metadata**~~ — **Done.** Progressive-disclosure Inspector fields (`informationCompleteness`, `decisionBasis`, + Tier-2 stakes/history fields); ML/gut-feel canvas badge; Claude produces decision-node findings.
 3. ~~**Task-node knowledge-access metadata**~~ — **Done (knowledge-access / "blue" branch).** `inputAccessibility` + Tier-2 fields; RAG-KB/info-gap badge; cross-graph pass in the prompt. The "purple" judgement-type branch (`judgementType`, automation/ML signals) remains to do.
-4. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
-5. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.
+4. ~~**Multi-level analysis**~~ — **Done.** Sub-flow and whole-workflow strategic passes chained on top of the per-task pass, each taking the level(s) below as input, with "no improvement over the level below" as an explicit first-class result. Results are cached in Supabase by a content hash of each level's own graph slice, so an unchanged workflow re-analyses in well under a second.
+5. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
+6. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.
