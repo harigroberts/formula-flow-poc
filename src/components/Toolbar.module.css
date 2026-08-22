@@ -4,8 +4,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  background: var(--color-dark);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--line-strong);
   flex-shrink: 0;
   position: relative;
 }
@@ -25,7 +25,7 @@
   font-family: var(--font-heading);
   font-size: 16px;
   font-weight: 600;
-  color: var(--color-light);
+  color: var(--color-clay);
   letter-spacing: -0.01em;
 }
 
@@ -35,23 +35,53 @@
   gap: 8px;
 }
 
+/* Accent-soft bar — global btn-* work on light surfaces, just tweak hover tint */
 .actions :global(.btn-ghost) {
-  color: var(--color-mid-gray);
+  color: var(--color-clay);
 }
 
 .actions :global(.btn-ghost:hover) {
-  color: var(--color-light);
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-ember);
+  background: rgba(200, 90, 36, 0.10);
 }
 
 .actions :global(.btn-secondary) {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--color-light);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: var(--color-clay);
+  border-color: var(--color-clay);
 }
 
 .actions :global(.btn-secondary:hover) {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--color-clay);
+  color: var(--color-paper);
+}
+
+.syncDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-mid-gray);
+  transition: background var(--dur-base);
+}
+
+.syncDot[data-status='synced'] {
+  background: var(--color-success);
+}
+
+.syncDot[data-status='saving'],
+.syncDot[data-status='connecting'] {
+  background: var(--color-orange);
+  animation: syncPulse 1s ease-in-out infinite;
+}
+
+.syncDot[data-status='error'] {
+  background: var(--color-error);
+}
+
+@keyframes syncPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 .error {
@@ -59,8 +89,8 @@
   bottom: -28px;
   left: 50%;
   transform: translateX(-50%);
-  background: #e63946;
-  color: white;
+  background: var(--color-error);
+  color: var(--color-paper);
   font-size: 12px;
   padding: 4px 12px;
   border-radius: var(--radius-sm);

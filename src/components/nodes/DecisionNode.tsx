@@ -5,6 +5,14 @@ import styles from './DecisionNode.module.css';
 
 function DecisionNode({ data, selected }: NodeProps) {
   const d = data as unknown as DecisionData;
+
+  const badge =
+    d.historicalDataExists && d.outcomeMeasured && d.outcomeDataSource
+      ? { label: 'ML', variant: 'ml' }
+      : d.informationCompleteness === 'gut_feel' || d.decisionBasis === 'intuition'
+      ? { label: 'gut-feel', variant: 'gut' }
+      : null;
+
   return (
     <div className={`${styles.wrapper} ${selected ? styles.selected : ''}`}>
       <div className={styles.diamond} />
@@ -14,6 +22,11 @@ function DecisionNode({ data, selected }: NodeProps) {
       <div className={styles.content}>
         <span className={styles.name}>{d.name || 'Decision?'}</span>
       </div>
+      {badge && (
+        <span className={`${styles.badge} ${styles[badge.variant as 'ml' | 'gut']}`}>
+          {badge.label}
+        </span>
+      )}
       <span className={styles.labelYes}>Yes</span>
       <span className={styles.labelNo}>No</span>
     </div>

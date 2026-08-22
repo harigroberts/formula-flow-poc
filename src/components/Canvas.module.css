@@ -5,31 +5,31 @@
 }
 
 .canvas :global(.react-flow__background) {
-  background: var(--color-light);
+  background: var(--color-linen);
 }
 
 .canvas :global(.react-flow__controls) {
   box-shadow: var(--shadow-sm);
   border-radius: var(--radius-sm);
   overflow: hidden;
-  border: 1px solid var(--color-light-gray);
+  border: 1px solid var(--line);
 }
 
 .canvas :global(.react-flow__controls-button) {
-  background: var(--color-light);
+  background: var(--color-paper);
   border: none;
-  border-bottom: 1px solid var(--color-light-gray);
+  border-bottom: 1px solid var(--line);
   color: var(--color-dark);
 }
 
 .canvas :global(.react-flow__controls-button:hover) {
-  background: var(--color-light-gray);
+  background: var(--accent-soft);
 }
 
 .canvas :global(.react-flow__minimap) {
   border-radius: var(--radius-sm);
   overflow: hidden;
-  border: 1px solid var(--color-light-gray);
+  border: 1px solid var(--line);
 }
 
 .canvas :global(.react-flow__edge-path) {
@@ -43,7 +43,7 @@
 
 .canvas :global(.react-flow__handle) {
   background: var(--color-mid-gray);
-  border: 2px solid var(--color-light);
+  border: 2px solid var(--color-linen);
   width: 10px;
   height: 10px;
 }

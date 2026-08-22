@@ -14,21 +14,23 @@
   width: 85px;
   height: 85px;
   transform: translate(-50%, -50%) rotate(45deg);
-  background: var(--color-light);
+  background: var(--color-paper);
   border: 2px solid var(--color-blue);
   border-radius: 4px;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition:
+    box-shadow var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
 }
 
 .wrapper:hover .diamond {
   box-shadow: var(--shadow-md);
-  background: rgba(106, 155, 204, 0.06);
+  background: color-mix(in srgb, var(--color-blue) 6%, transparent);
 }
 
 .selected .diamond {
   border-color: var(--color-blue) !important;
-  box-shadow: 0 0 0 3px rgba(106, 155, 204, 0.22), var(--shadow-md) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-blue) 22%, transparent), var(--shadow-md) !important;
 }
 
 .content {
@@ -76,4 +78,31 @@
   font-weight: 600;
   color: var(--color-orange);
   pointer-events: none;
+}
+
+.badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-family: var(--font-heading);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.badge.ml {
+  background: color-mix(in srgb, var(--color-green) 12%, transparent);
+  color: var(--color-green);
+  border: 1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
+}
+
+.badge.gut {
+  background: color-mix(in srgb, var(--color-mustard) 12%, transparent);
+  color: var(--color-mustard);
+  border: 1px solid color-mix(in srgb, var(--color-mustard) 30%, transparent);
 }

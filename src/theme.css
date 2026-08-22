@@ -1,24 +1,39 @@
+/* App-level token remap onto the Tangerine foundation.
+   Tangerine tokens are loaded first (styles/tangerine/styles.css),
+   so all var(--color-*) etc. references below resolve correctly. */
+
 :root {
-  --color-dark: #141413;
-  --color-light: #faf9f5;
-  --color-mid-gray: #b0aea5;
-  --color-light-gray: #e8e6dc;
-  --color-orange: #d97757;
-  --color-blue: #6a9bcc;
-  --color-green: #788c5d;
-  --color-red: #be3a34;
+  /* Colour aliases — keep existing names so modules need no changes */
+  --color-dark:       var(--color-clay);       /* #3E2A1E — dark surfaces */
+  --color-light:      var(--color-paper);      /* #FDF7EC — light surfaces */
+  --color-mid-gray:   var(--fg-subtle);        /* #9A7E66 */
+  --color-light-gray: var(--line);             /* #E0CFB4 */
+  --color-orange:     var(--color-tangerine);  /* #E8763A */
+  --color-orange-hover: var(--color-ember);    /* #C85A24 */
+  --color-blue:       var(--color-sky);        /* #7A9AB8 */
+  --color-green:      var(--color-sage);       /* #8B9A5B */
+  --color-red:        var(--color-plum);       /* #7A3B4A */
 
-  --font-heading: 'Poppins', Arial, sans-serif;
-  --font-body: 'Lora', Georgia, serif;
+  /* Semantic tokens for status indicators (replaces hardcoded #22c55e / #e63946) */
+  --color-success:    var(--color-sage);
+  --color-error:      var(--color-plum);
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  /* Fonts — Work Sans for both heading and body */
+  --font-heading: var(--font-display);  /* 'Work Sans' */
+  /* --font-body already set by Tangerine to 'Work Sans' */
+  /* --font-mono already set by Tangerine to 'JetBrains Mono' */
 
-  --shadow-sm: 0 1px 3px rgba(20, 20, 19, 0.08);
-  --shadow-md: 0 4px 12px rgba(20, 20, 19, 0.12);
-  --shadow-lg: 0 8px 24px rgba(20, 20, 19, 0.16);
+  /* Radii — density-adapted (tighter than raw Tangerine for compact tool UI) */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
 
+  /* Shadows — warm ink (from Tangerine) */
+  --shadow-sm: 0 1px 2px rgba(42, 24, 16, 0.08), 0 1px 0 rgba(42, 24, 16, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(42, 24, 16, 0.10), 0 2px 4px rgba(42, 24, 16, 0.05);
+  --shadow-lg: 0 16px 36px -12px rgba(42, 24, 16, 0.18), 0 4px 8px rgba(42, 24, 16, 0.04);
+
+  /* Layout dimensions — unchanged */
   --sidebar-width: 220px;
   --inspector-width: 300px;
   --inspector-collapsed-width: 36px;
@@ -44,10 +59,10 @@ body,
 
 body {
   font-family: var(--font-body);
-  background: var(--color-light);
-  color: var(--color-dark);
-  font-size: 14px;
-  line-height: 1.5;
+  background: var(--color-linen);
+  color: var(--color-clay);
+  font-size: 15px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -75,47 +90,64 @@ textarea,
 select {
   font-family: var(--font-body);
   font-size: 13px;
-  color: var(--color-dark);
+  color: var(--color-clay);
 }
 
+/* ── Utility button classes (Tangerine pattern) ── */
+
 .btn-primary {
-  background: var(--color-orange);
-  color: var(--color-light);
+  background: var(--color-tangerine);
+  color: var(--on-accent);
   padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  transition: opacity 0.15s ease;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    transform  var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 .btn-primary:hover {
-  opacity: 0.88;
+  background: var(--color-ember);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.btn-primary:active {
+  transform: translateY(0);
 }
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-secondary {
-  background: var(--color-light-gray);
-  color: var(--color-dark);
+  background: transparent;
+  color: var(--color-clay);
   padding: 8px 14px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-clay);
   font-weight: 500;
-  transition: background 0.15s ease;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color      var(--dur-fast) var(--ease-out);
 }
 .btn-secondary:hover {
-  background: var(--color-mid-gray);
-  color: var(--color-light);
+  background: var(--color-clay);
+  color: var(--color-paper);
 }
 
 .btn-ghost {
   background: transparent;
-  color: var(--color-mid-gray);
+  color: var(--color-tangerine);
   padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-weight: 500;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition:
+    color       var(--dur-fast) var(--ease-out),
+    background  var(--dur-fast) var(--ease-out);
 }
 .btn-ghost:hover {
-  color: var(--color-dark);
-  background: var(--color-light-gray);
+  color: var(--color-ember);
+  background: var(--accent-soft);
 }

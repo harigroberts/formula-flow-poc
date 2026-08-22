@@ -9,7 +9,7 @@ export async function analyzeWorkflow(payload: unknown): Promise<AnalysisResult>
 
   const response = await client.messages.create({
     model: 'claude-haiku-4-5',
-    max_tokens: 3072,
+    max_tokens: 8096,
     system: [
       {
         type: 'text',
@@ -35,11 +35,14 @@ export async function analyzeWorkflow(payload: unknown): Promise<AnalysisResult>
   try {
     parsed = JSON.parse(text) as AnalysisResult;
   } catch {
-    // If the model returned markdown-fenced JSON, strip the fences
-    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (match) {
-      parsed = JSON.parse(match[1]) as AnalysisResult;
-    } else {
+    // Strip markdown fences if present (closed or truncated)
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const jsonCandidate = fenceMatch
+      ? fenceMatch[1]
+      : text.match(/```(?:json)?\s*([\s\S]+)/)?.[1] ?? text;
+    try {
+      parsed = JSON.parse(jsonCandidate) as AnalysisResult;
+    } catch {
       throw new Error(`Model returned non-JSON response: ${text.slice(0, 200)}`);
     }
   }

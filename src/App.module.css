@@ -33,15 +33,16 @@
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--color-clay);
+  color: var(--color-paper);
   font-family: var(--font-heading);
   font-size: 13px;
+  font-weight: 500;
   padding: 10px 20px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   z-index: 50;
-  animation: fadeUp 0.2s ease;
+  animation: fadeUp var(--dur-base) var(--ease-out);
 }
 
 @keyframes fadeUp {

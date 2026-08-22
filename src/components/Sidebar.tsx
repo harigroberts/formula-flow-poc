@@ -20,10 +20,10 @@ export default function Sidebar() {
       <div className={styles.section}>
         <h3 className={styles.heading}>Add to canvas</h3>
         <p className={styles.hint}>Drag onto the canvas</p>
-        <DraggableItem label="Task" type="task" icon="✦" />
+        <DraggableItem label="Task" type="task" icon="✦" iconClass={styles.iconXL} />
         <DraggableItem label="Sub-flow" type="flow" icon="⚡" />
         <DraggableItem label="Decision" type="decision" icon="◆" iconClass={styles.iconLarge} />
-        <DraggableItem label="Start" type="start" icon="▶" iconColor="var(--color-green)" />
+        <DraggableItem label="Start" type="start" icon="▶" iconColor="var(--color-green)" iconClass={styles.iconLarge} />
         <DraggableItem label="End" type="end" icon="■" iconColor="var(--color-red)" iconClass={styles.iconLarge} />
       </div>
       <div className={styles.section}>

@@ -8,7 +8,9 @@
   min-width: 100px;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: box-shadow 0.15s ease, opacity 0.15s ease;
+  transition:
+    box-shadow var(--dur-fast) var(--ease-out),
+    opacity    var(--dur-fast) var(--ease-out);
 }
 
 .node:hover {
@@ -27,17 +29,17 @@
 }
 
 .selected {
-  box-shadow: 0 0 0 3px rgba(120, 140, 93, 0.3), var(--shadow-md) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-green) 30%, transparent), var(--shadow-md) !important;
 }
 
 .end.selected {
-  box-shadow: 0 0 0 3px rgba(190, 58, 52, 0.3), var(--shadow-md) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-red) 30%, transparent), var(--shadow-md) !important;
 }
 
 .name {
   font-family: var(--font-heading);
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-light);
+  color: var(--color-paper);
   white-space: nowrap;
 }

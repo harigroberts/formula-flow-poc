@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 420" fill="none">
+  <defs>
+    <radialGradient id="fruit-a" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#F2A26A"></stop>
+      <stop offset="70%" stop-color="#D9591C"></stop>
+      <stop offset="100%" stop-color="#C85A24"></stop>
+    </radialGradient>
+    <pattern id="grain-a" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="0.5" fill="#3E2A1E" opacity="0.08"></circle>
+    </pattern>
+  </defs>
+  
+  <ellipse cx="260" cy="390" rx="180" ry="14" fill="#3E2A1E" opacity="0.08"></ellipse>
+  
+  <path d="M250 385 C246 340 252 300 248 260 C244 230 256 210 260 190" stroke="#5C3A24" stroke-width="8" stroke-linecap="round" fill="none"></path>
+  <path d="M260 270 C272 265 290 260 302 262" stroke="#5C3A24" stroke-width="5" stroke-linecap="round" fill="none"></path>
+  <path d="M250 240 C236 232 220 228 206 232" stroke="#5C3A24" stroke-width="5" stroke-linecap="round" fill="none"></path>
+  
+  <path d="M150 160 C120 130 130 90 170 80 C180 50 240 40 270 70 C310 50 370 70 380 110 C420 120 430 170 400 200 C410 240 370 260 330 250 C310 280 250 290 220 265 C180 280 140 260 140 225 C110 210 120 170 150 160 Z" fill="#8B9A5B" stroke="#3E2A1E" stroke-width="2.5" stroke-linejoin="round"></path>
+  <path d="M150 160 C120 130 130 90 170 80 C180 50 240 40 270 70 C310 50 370 70 380 110 C420 120 430 170 400 200 C410 240 370 260 330 250 C310 280 250 290 220 265 C180 280 140 260 140 225 C110 210 120 170 150 160 Z" fill="url(#grain-a)"></path>
+  
+  <path d="M200 120 C215 125 230 128 245 130" stroke="#3E2A1E" stroke-width="1.2" fill="none" opacity="0.35"></path>
+  <path d="M290 100 C305 110 320 118 335 125" stroke="#3E2A1E" stroke-width="1.2" fill="none" opacity="0.35"></path>
+  <path d="M180 200 C200 210 220 215 245 215" stroke="#3E2A1E" stroke-width="1.2" fill="none" opacity="0.35"></path>
+  
+  <g stroke="#3E2A1E" stroke-width="1.8" stroke-linejoin="round">
+    <circle cx="205" cy="145" r="22" fill="url(#fruit-a)"></circle>
+    <circle cx="300" cy="130" r="26" fill="url(#fruit-a)"></circle>
+    <circle cx="370" cy="180" r="20" fill="url(#fruit-a)"></circle>
+    <circle cx="250" cy="210" r="24" fill="url(#fruit-a)"></circle>
+    <circle cx="170" cy="210" r="18" fill="url(#fruit-a)"></circle>
+    <circle cx="345" cy="225" r="22" fill="url(#fruit-a)"></circle>
+  </g>
+  
+  <g stroke="#FBE3C8" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7">
+    <path d="M195 135 C198 131 203 130 208 131"></path>
+    <path d="M290 120 C294 115 300 114 306 115"></path>
+    <path d="M362 172 C365 169 369 168 373 169"></path>
+    <path d="M240 200 C244 196 249 195 254 196"></path>
+  </g>
+  
+  <circle cx="160" cy="380" r="14" fill="url(#fruit-a)" stroke="#3E2A1E" stroke-width="1.8"></circle>
+  <circle cx="360" cy="385" r="12" fill="url(#fruit-a)" stroke="#3E2A1E" stroke-width="1.8"></circle>
+  
+  <g stroke="#6B7A3F" stroke-width="2" stroke-linecap="round" fill="none">
+    <path d="M100 390 C102 385 104 382 106 378"></path>
+    <path d="M110 390 C112 386 113 384 115 381"></path>
+    <path d="M430 390 C432 384 434 381 436 377"></path>
+    <path d="M440 390 C442 386 443 383 445 379"></path>
+  </g>
+</svg>

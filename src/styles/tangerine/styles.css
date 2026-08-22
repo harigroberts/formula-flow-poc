@@ -1,0 +1,8 @@
+/* ============================================================
+   Tangerine Design System — root stylesheet entry point
+   Import this single file to get all design tokens and
+   semantic type classes. Other CSS files in this project
+   (preview, ui_kits) are internal and not needed by consumers.
+   ============================================================ */
+
+@import './colors_and_type.css';
