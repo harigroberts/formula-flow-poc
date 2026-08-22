@@ -216,4 +216,9 @@ export interface MultiLevelAnalysis {
   tasks: AnalysisResult | null;
   subFlows: SubFlowAnalysis[];
   strategic: StrategicAnalysis | null;
+  /**
+   * Which results the server served from `analysis_cache` rather than by calling the model.
+   * Keys are `'tasks'`, `'strategic'`, or a sub-flow's `flowId`.
+   */
+  cached: Record<string, boolean>;
 }

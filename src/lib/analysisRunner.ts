@@ -59,20 +59,37 @@ export async function runAnalysis(
   doc: WorkflowDoc,
   depth: AnalysisDepth,
   onProgress: (p: Progress) => void,
+  opts: { fresh?: boolean } = {},
 ): Promise<MultiLevelAnalysis> {
-  const analysis: MultiLevelAnalysis = { depth, tasks: null, subFlows: [], strategic: null };
+  const fresh = opts.fresh ?? false;
+  const analysis: MultiLevelAnalysis = {
+    depth,
+    tasks: null,
+    subFlows: [],
+    strategic: null,
+    cached: {},
+  };
+
+  // A fresh snapshot each time — `subFlows` and `cached` are mutated as the run proceeds.
+  const snapshot = (): MultiLevelAnalysis => ({
+    ...analysis,
+    subFlows: [...analysis.subFlows],
+    cached: { ...analysis.cached },
+  });
 
   // Level 1 — per-node findings across the whole document.
-  onProgress({ stage: 'tasks', analysis: { ...analysis } });
-  analysis.tasks = await analyzeTasks(doc);
+  onProgress({ stage: 'tasks', analysis: snapshot() });
+  const tasks = await analyzeTasks(doc, fresh);
+  analysis.tasks = tasks.result;
+  analysis.cached.tasks = tasks.cached;
 
   if (depth === 'tasks') {
-    onProgress({ stage: 'done', analysis: { ...analysis } });
+    onProgress({ stage: 'done', analysis: snapshot() });
     return analysis;
   }
 
   // Level 2 — each sub-flow as an integrated whole, deepest tier first.
-  onProgress({ stage: 'subflows', analysis: { ...analysis, tasks: analysis.tasks } });
+  onProgress({ stage: 'subflows', analysis: snapshot() });
   const findings = analysis.tasks.findings;
 
   for (const tier of subFlowTiers(doc)) {
@@ -82,23 +99,26 @@ export async function runAnalysis(
         const childAnalyses = analysis.subFlows.filter((a) =>
           doc.flows.some((f) => f.id === a.flowId && f.parentFlowId === flow.id),
         );
-        return analyzeSubFlow(doc, flow, findings, childAnalyses);
+        return analyzeSubFlow(doc, flow, findings, childAnalyses, fresh);
       }),
     );
-    analysis.subFlows = [...analysis.subFlows, ...results];
-    onProgress({ stage: 'subflows', analysis: { ...analysis, subFlows: [...analysis.subFlows] } });
+    for (const r of results) analysis.cached[r.result.flowId] = r.cached;
+    analysis.subFlows = [...analysis.subFlows, ...results.map((r) => r.result)];
+    onProgress({ stage: 'subflows', analysis: snapshot() });
   }
 
   if (depth === 'subflows') {
-    onProgress({ stage: 'done', analysis: { ...analysis, subFlows: [...analysis.subFlows] } });
+    onProgress({ stage: 'done', analysis: snapshot() });
     return analysis;
   }
 
   // Level 3 — the entire workflow as one system.
-  onProgress({ stage: 'strategic', analysis: { ...analysis, subFlows: [...analysis.subFlows] } });
-  analysis.strategic = await analyzeStrategic(doc, analysis.tasks, analysis.subFlows);
+  onProgress({ stage: 'strategic', analysis: snapshot() });
+  const strategic = await analyzeStrategic(doc, analysis.tasks, analysis.subFlows, fresh);
+  analysis.strategic = strategic.result;
+  analysis.cached.strategic = strategic.cached;
 
-  onProgress({ stage: 'done', analysis: { ...analysis, subFlows: [...analysis.subFlows] } });
+  onProgress({ stage: 'done', analysis: snapshot() });
   return analysis;
 }
 

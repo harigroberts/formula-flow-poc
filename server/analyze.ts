@@ -4,6 +4,7 @@ import { TASK_PROMPT } from './prompts/task';
 import { SUBFLOW_PROMPT } from './prompts/subflow';
 import { STRATEGIC_PROMPT } from './prompts/strategic';
 import { SUBFLOW_SCHEMA, STRATEGIC_SCHEMA } from './schemas';
+import { sha256, type CacheLevel } from './cache';
 import type { AnalysisResult, StrategicAnalysis, SubFlowAnalysis } from '../src/types';
 
 const client = new Anthropic();
@@ -192,3 +193,31 @@ export async function analyzeStrategic(payload: unknown): Promise<StrategicAnaly
     }),
   );
 }
+
+/**
+ * Everything the cache needs to know about a level, so `index.ts` doesn't have to re-derive
+ * which model and prompt each route uses. `promptHash` covers the shared context, the level
+ * prompt and the output schema, so editing any of them invalidates that level's cache entries.
+ */
+export const LEVELS: Record<
+  CacheLevel,
+  { model: string; promptHash: string; run: (payload: unknown) => Promise<unknown> }
+> = {
+  tasks: {
+    model: TASK_MODEL,
+    promptHash: sha256(`${SHARED_CONTEXT}\0${TASK_PROMPT}`),
+    run: analyzeTasks,
+  },
+  subflow: {
+    model: INTEGRATION_MODEL,
+    promptHash: sha256(`${SHARED_CONTEXT}\0${SUBFLOW_PROMPT}\0${JSON.stringify(SUBFLOW_SCHEMA)}`),
+    run: analyzeSubFlow,
+  },
+  strategic: {
+    model: INTEGRATION_MODEL,
+    promptHash: sha256(
+      `${SHARED_CONTEXT}\0${STRATEGIC_PROMPT}\0${JSON.stringify(STRATEGIC_SCHEMA)}`,
+    ),
+    run: analyzeStrategic,
+  },
+};

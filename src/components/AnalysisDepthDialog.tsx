@@ -33,12 +33,13 @@ const OPTIONS: DepthOption[] = [
 ];
 
 interface Props {
-  onRun: (depth: AnalysisDepth) => void;
+  onRun: (depth: AnalysisDepth, fresh: boolean) => void;
   onClose: () => void;
 }
 
 export default function AnalysisDepthDialog({ onRun, onClose }: Props) {
   const [selected, setSelected] = useState<AnalysisDepth>('strategic');
+  const [fresh, setFresh] = useState(false);
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -72,11 +73,22 @@ export default function AnalysisDepthDialog({ onRun, onClose }: Props) {
           ))}
         </div>
 
+        <label className={styles.freshRow}>
+          <input type="checkbox" checked={fresh} onChange={(e) => setFresh(e.target.checked)} />
+          <span>
+            <span className={styles.freshLabel}>Ignore cached results</span>
+            <span className={styles.freshHint}>
+              Results are reused when nothing relevant has changed. Tick this to re-run every level
+              against Claude and replace what's stored.
+            </span>
+          </span>
+        </label>
+
         <div className={styles.actions}>
           <button className="btn-ghost" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn-primary" onClick={() => onRun(selected)}>
+          <button className="btn-primary" onClick={() => onRun(selected, fresh)}>
             ✦ Analyse
           </button>
         </div>

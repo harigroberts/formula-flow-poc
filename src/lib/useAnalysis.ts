@@ -18,18 +18,23 @@ export function useAnalysis() {
   const runId = useRef(0);
 
   const run = useCallback(
-    async (depth: AnalysisDepth) => {
+    async (depth: AnalysisDepth, fresh = false) => {
       const id = ++runId.current;
       setError(null);
-      setAnalysis({ depth, tasks: null, subFlows: [], strategic: null });
+      setAnalysis({ depth, tasks: null, subFlows: [], strategic: null, cached: {} });
       setStage('tasks');
 
       try {
-        await runAnalysis(getDoc(), depth, ({ stage: s, analysis: a }) => {
-          if (id !== runId.current) return;
-          setStage(s);
-          setAnalysis(a);
-        });
+        await runAnalysis(
+          getDoc(),
+          depth,
+          ({ stage: s, analysis: a }) => {
+            if (id !== runId.current) return;
+            setStage(s);
+            setAnalysis(a);
+          },
+          { fresh },
+        );
       } catch (err) {
         if (id !== runId.current) return;
         setError(err instanceof Error ? err.message : 'Unknown error');

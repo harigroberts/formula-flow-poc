@@ -107,6 +107,41 @@
   color: var(--fg-muted);
 }
 
+.freshRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--color-cream);
+  cursor: pointer;
+}
+
+.freshRow input {
+  margin-top: 2px;
+  accent-color: var(--color-tangerine);
+  cursor: pointer;
+}
+
+.freshRow > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.freshLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-clay);
+}
+
+.freshHint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

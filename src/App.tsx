@@ -47,10 +47,10 @@ export default function App() {
     }
   };
 
-  const handleRunAnalysis = (depth: AnalysisDepth) => {
+  const handleRunAnalysis = (depth: AnalysisDepth, fresh: boolean) => {
     setShowDepthDialog(false);
     setShowAnalysis(true);
-    void runAnalysis(depth);
+    void runAnalysis(depth, fresh);
   };
 
   return (

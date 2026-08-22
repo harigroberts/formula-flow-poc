@@ -64,6 +64,16 @@ function Minutes({ value, prefix }: { value: number; prefix: string }) {
   );
 }
 
+/** Shown when the server returned a stored result instead of calling the model. */
+function CachedBadge({ when }: { when: boolean | undefined }) {
+  if (!when) return null;
+  return (
+    <span className={styles.cachedBadge} title="Reused from a previous run — the model wasn't called">
+      ⓘ cached
+    </span>
+  );
+}
+
 /* ------------------------------------------------------------------ level 1 */
 
 function FindingCard({ f }: { f: AnalysisFinding }) {
@@ -93,11 +103,16 @@ function FindingCard({ f }: { f: AnalysisFinding }) {
   );
 }
 
-function TasksTab({ result }: { result: AnalysisResult }) {
+function TasksTab({ result, cached }: { result: AnalysisResult; cached?: boolean }) {
   return (
     <div className={styles.body}>
       <div className={styles.leftCol}>
         <div className={styles.summary}>
+          {cached && (
+            <div className={styles.cachedRow}>
+              <CachedBadge when={cached} />
+            </div>
+          )}
           <p>{result.summary}</p>
           {result.totalMonthlyTimeSaved !== undefined && (
             <p className={styles.totalSaved}>
@@ -152,13 +167,16 @@ function TasksTab({ result }: { result: AnalysisResult }) {
 
 /* ------------------------------------------------------------------ level 2 */
 
-function SubFlowCard({ a }: { a: SubFlowAnalysis }) {
+function SubFlowCard({ a, cached }: { a: SubFlowAnalysis; cached?: boolean }) {
   if (!a.improvesOnTaskLevel) {
     return (
       <div className={`${styles.card} ${styles.cardMuted}`}>
         <div className={styles.cardHeader}>
           <span className={styles.nodeName}>{a.flowName}</span>
-          <span className={styles.noGainBadge}>ⓘ No gain over task-by-task</span>
+          <span className={styles.badgeGroup}>
+            <CachedBadge when={cached} />
+            <span className={styles.noGainBadge}>ⓘ No gain over task-by-task</span>
+          </span>
         </div>
         <p className={styles.recommendation}>{a.verdict}</p>
         <p className={styles.rationale}>{a.rationale}</p>
@@ -170,11 +188,14 @@ function SubFlowCard({ a }: { a: SubFlowAnalysis }) {
     <div className={styles.card}>
       <div className={styles.cardHeader}>
         <span className={styles.nodeName}>{a.flowName}</span>
-        <span
-          className={styles.confidence}
-          style={{ color: confidenceColor[a.confidence] ?? 'var(--color-mid-gray)' }}
-        >
-          {a.confidence}
+        <span className={styles.badgeGroup}>
+          <CachedBadge when={cached} />
+          <span
+            className={styles.confidence}
+            style={{ color: confidenceColor[a.confidence] ?? 'var(--color-mid-gray)' }}
+          >
+            {a.confidence}
+          </span>
         </span>
       </div>
       <p className={styles.verdict}>{a.verdict}</p>
@@ -206,7 +227,13 @@ function SubFlowCard({ a }: { a: SubFlowAnalysis }) {
   );
 }
 
-function SubFlowsTab({ analyses }: { analyses: SubFlowAnalysis[] }) {
+function SubFlowsTab({
+  analyses,
+  cached,
+}: {
+  analyses: SubFlowAnalysis[];
+  cached: Record<string, boolean>;
+}) {
   const doc = useWorkflowStore((s) => s.doc);
   const ordered = orderSubFlows(doc, analyses);
   const improved = ordered.filter((a) => a.improvesOnTaskLevel).length;
@@ -225,7 +252,7 @@ function SubFlowsTab({ analyses }: { analyses: SubFlowAnalysis[] }) {
             by an integrated approach rather than task by task.
           </p>
           {ordered.map((a) => (
-            <SubFlowCard key={a.flowId} a={a} />
+            <SubFlowCard key={a.flowId} a={a} cached={cached[a.flowId]} />
           ))}
         </>
       )}
@@ -273,12 +300,17 @@ function InitiativeCard({ init, index }: { init: StrategicInitiative; index: num
   );
 }
 
-function StrategicTab({ s }: { s: StrategicAnalysis }) {
+function StrategicTab({ s, cached }: { s: StrategicAnalysis; cached?: boolean }) {
   return (
     <div className={styles.singleCol}>
       <div className={s.improvesOnLowerLevels ? styles.verdictBanner : styles.verdictBannerMuted}>
-        <span className={styles.verdictLabel}>
-          {s.improvesOnLowerLevels ? '✦ Strategic opportunity' : 'ⓘ No gain over the lower levels'}
+        <span className={styles.verdictHead}>
+          <span className={styles.verdictLabel}>
+            {s.improvesOnLowerLevels
+              ? '✦ Strategic opportunity'
+              : 'ⓘ No gain over the lower levels'}
+          </span>
+          <CachedBadge when={cached} />
         </span>
         <p className={styles.verdictText}>{s.verdict}</p>
       </div>
@@ -395,14 +427,16 @@ export default function AnalysisPanel({ analysis, stage, error, onClose }: Analy
           <>
             {tab === 'tasks' &&
               (analysis.tasks ? (
-                <TasksTab result={analysis.tasks} />
+                <TasksTab result={analysis.tasks} cached={analysis.cached.tasks} />
               ) : (
                 <Placeholder>No task analysis available.</Placeholder>
               ))}
-            {tab === 'subflows' && <SubFlowsTab analyses={analysis.subFlows} />}
+            {tab === 'subflows' && (
+              <SubFlowsTab analyses={analysis.subFlows} cached={analysis.cached} />
+            )}
             {tab === 'strategic' &&
               (analysis.strategic ? (
-                <StrategicTab s={analysis.strategic} />
+                <StrategicTab s={analysis.strategic} cached={analysis.cached.strategic} />
               ) : (
                 <Placeholder>No strategic analysis available.</Placeholder>
               ))}
