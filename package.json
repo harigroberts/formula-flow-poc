@@ -10,7 +10,7 @@
     "server": "tsx server/index.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.120.0",
     "@supabase/supabase-js": "^2.108.0",
     "@xyflow/react": "^12.3.6",
     "cors": "^2.8.5",

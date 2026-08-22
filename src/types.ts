@@ -145,3 +145,75 @@ export interface AnalysisResult {
   totalMonthlyTimeSaved?: number;
   personaUtilisation?: PersonaUtilisation[];
 }
+
+/**
+ * How deep to run the analysis. Each level takes the level(s) below it as input,
+ * so `strategic` implies all three passes have run.
+ */
+export type AnalysisDepth = 'tasks' | 'subflows' | 'strategic';
+
+/**
+ * Level 2 — one sub-flow reviewed as an integrated whole, given its own task-level
+ * findings. `improvesOnTaskLevel: false` is a first-class result: it says the
+ * task-by-task plan is already the right answer for this sub-flow.
+ */
+export interface SubFlowAnalysis {
+  flowId: string;
+  flowName: string;
+  /** false ⇒ no integrated approach beats doing the tasks one at a time. */
+  improvesOnTaskLevel: boolean;
+  /** Always present. When improvesOnTaskLevel is false this is the explicit "no gain" statement. */
+  verdict: string;
+  /** Only when improvesOnTaskLevel — the integrated redesign. */
+  recommendation?: string;
+  claudeProduct?: string;
+  /** Ids of the task nodes whose individual findings this integrated approach replaces. */
+  supersedesNodeIds?: string[];
+  /** Minutes/month for the integrated approach as a whole. */
+  estMonthlyTimeSaved?: number;
+  /** Minutes/month gained *beyond* what the task-level findings already claim. */
+  incrementalMonthlyTimeSaved?: number;
+  rationale: string;
+  confidence: 'high' | 'medium' | 'low';
+  risks?: string[];
+}
+
+/** One whole-workflow move produced by the strategic pass. */
+export interface StrategicInitiative {
+  title: string;
+  recommendation: string;
+  claudeProduct: string;
+  /** Flow ids this initiative reaches across. */
+  spansFlowIds: string[];
+  supersedes?: { nodeIds?: string[]; flowIds?: string[] };
+  estMonthlyTimeSaved?: number;
+  /** Minutes/month gained beyond the task and sub-flow levels. */
+  incrementalMonthlyTimeSaved?: number;
+  /** Where this sits in a roadmap (e.g. "Phase 1 — prerequisite for the others"). */
+  sequencing?: string;
+  rationale: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Level 3 — the entire workflow reviewed as one system, given the task findings and
+ * every sub-flow analysis. `improvesOnLowerLevels: false` is a first-class result.
+ */
+export interface StrategicAnalysis {
+  /** false ⇒ the task and sub-flow levels have already captured everything. */
+  improvesOnLowerLevels: boolean;
+  /** Always present, including the explicit "no gain" statement. */
+  verdict: string;
+  summary: string;
+  initiatives: StrategicInitiative[];
+  /** Minutes/month gained over the lower levels only — never a re-count of them. */
+  totalIncrementalMonthlyTimeSaved?: number;
+}
+
+/** The full three-level result, filled in progressively as each pass completes. */
+export interface MultiLevelAnalysis {
+  depth: AnalysisDepth;
+  tasks: AnalysisResult | null;
+  subFlows: SubFlowAnalysis[];
+  strategic: StrategicAnalysis | null;
+}
