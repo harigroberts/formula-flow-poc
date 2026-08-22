@@ -10,18 +10,21 @@ export const seedDoc: WorkflowDoc = {
       description: 'End-to-end process for onboarding a new B2B customer from signed contract to first value delivery.',
       parentFlowId: null,
       companyName: 'ACME Ltd',
+      departmentId: 'dept-cs',
     },
     {
       id: 'flow-billing',
       name: 'Billing Setup',
       description: 'Configure the customer billing account, payment method, and first invoice in Stripe.',
       parentFlowId: 'flow-root',
+      departmentId: 'dept-finance',
     },
     {
       id: 'flow-provisioning',
       name: 'Account Provisioning',
       description: 'Create user accounts, assign licences, and configure SSO.',
       parentFlowId: 'flow-root',
+      departmentId: 'dept-it',
     },
   ],
   frequencies: [
@@ -33,6 +36,11 @@ export const seedDoc: WorkflowDoc = {
     { id: 'persona-salesops', role: 'Sales Operations', workerCount: 2, avgWeeklyHours: 40 },
     { id: 'persona-finance', role: 'Finance Analyst', workerCount: 2, avgWeeklyHours: 40 },
     { id: 'persona-itops', role: 'IT Operations', workerCount: 3, avgWeeklyHours: 40 },
+  ],
+  departments: [
+    { id: 'dept-cs', name: 'Customer Success' },
+    { id: 'dept-finance', name: 'Finance' },
+    { id: 'dept-it', name: 'IT Operations' },
   ],
   nodes: [
     // ── Root flow nodes ───────────────────────────────────────────────────────
@@ -128,6 +136,7 @@ export const seedDoc: WorkflowDoc = {
         name: 'Billing Setup',
         childFlowId: 'flow-billing',
         description: 'Configure Stripe billing account and send first invoice.',
+        departmentId: 'dept-finance',
       },
     },
     {
@@ -140,6 +149,7 @@ export const seedDoc: WorkflowDoc = {
         name: 'Account Provisioning',
         childFlowId: 'flow-provisioning',
         description: 'Create user accounts, assign licences, configure SSO.',
+        departmentId: 'dept-it',
       },
     },
     {

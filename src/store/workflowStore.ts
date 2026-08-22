@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import type { NodeChange, EdgeChange, Connection } from '@xyflow/react';
-import type { WFNode, WFEdge, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData, FrequencyCategory, Persona } from '@/types';
+import type { WFNode, WFEdge, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData, FrequencyCategory, Persona, Department } from '@/types';
 import { seedDoc } from '@/lib/seed';
 import { normalizeDoc } from '@/lib/persistence';
 
@@ -28,6 +28,7 @@ interface WorkflowState {
   selectedNode: () => (WFNode & { flowId: string }) | undefined;
   frequencies: () => FrequencyCategory[];
   personas: () => Persona[];
+  departments: () => Department[];
 
   // navigation
   enterFlow: (childFlowId: string) => void;
@@ -50,6 +51,9 @@ interface WorkflowState {
   addPersona: () => string;
   updatePersona: (id: string, patch: Partial<Persona>) => void;
   deletePersona: (id: string) => void;
+  addDepartment: () => string;
+  updateDepartment: (id: string, patch: Partial<Department>) => void;
+  deleteDepartment: (id: string) => void;
 
   // flow management
   clearCurrentFlow: () => void;
@@ -131,6 +135,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
   frequencies: () => get().doc.frequencies,
   personas: () => get().doc.personas,
+  departments: () => get().doc.departments,
 
   enterFlow: (childFlowId) => {
     const { doc, breadcrumbs } = get();
@@ -259,7 +264,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const ref = updated.data as FlowRefData;
         flows = state.doc.flows.map(f =>
           f.id === ref.childFlowId
-            ? { ...f, name: ref.name, description: ref.description ?? f.description, department: ref.department ?? f.department }
+            ? { ...f, name: ref.name, description: ref.description ?? f.description, departmentId: ref.departmentId ?? f.departmentId }
             : f
         );
       }
@@ -371,6 +376,44 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }));
   },
 
+  addDepartment: () => {
+    const id = `dept-${uid()}`;
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        departments: [...state.doc.departments, { id, name: 'New department' }],
+      },
+    }));
+    return id;
+  },
+
+  updateDepartment: (id, patch) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        departments: state.doc.departments.map(d => (d.id === id ? { ...d, ...patch } : d)),
+      },
+    }));
+  },
+
+  deleteDepartment: (id) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        departments: state.doc.departments.filter(d => d.id !== id),
+        // Unlink any flows and flow-reference nodes that referenced it.
+        flows: state.doc.flows.map(f =>
+          f.departmentId === id ? { ...f, departmentId: undefined } : f
+        ),
+        nodes: state.doc.nodes.map(n =>
+          n.data.type === 'flow' && (n.data as FlowRefData).departmentId === id
+            ? { ...n, data: { ...n.data, departmentId: undefined } as FlowRefData }
+            : n
+        ),
+      },
+    }));
+  },
+
   clearCurrentFlow: () => {
     set((state) => ({
       doc: {
@@ -379,7 +422,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         edges: state.doc.edges.filter(e => e.flowId !== state.currentFlowId),
         flows: state.doc.flows.map(f =>
           f.id === state.currentFlowId
-            ? { ...f, name: '', description: '', department: undefined, companyName: undefined }
+            ? { ...f, name: '', description: '', departmentId: undefined, companyName: undefined }
             : f
         ),
       },

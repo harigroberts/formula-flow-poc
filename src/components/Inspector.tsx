@@ -56,8 +56,11 @@ export default function Inspector() {
     setSelectedNode,
     frequencies,
     personas,
+    departments,
     addFrequency,
     addPersona,
+    addDepartment,
+    updateDepartment,
     currentFlow,
     updateCurrentFlow,
   } = useWorkflowStore();
@@ -65,6 +68,19 @@ export default function Inspector() {
 
   const node = selectedNode();
   const flow = currentFlow();
+  const departmentList = departments();
+
+  const handleRootDepartmentChange = (value: string) => {
+    if (value === NEW_OPTION) {
+      const name = window.prompt('Name the new department')?.trim();
+      if (!name) return;
+      const id = addDepartment();
+      updateDepartment(id, { name });
+      updateCurrentFlow({ departmentId: id });
+      return;
+    }
+    updateCurrentFlow({ departmentId: value || undefined });
+  };
 
   if (collapsed) {
     return (
@@ -126,12 +142,19 @@ export default function Inspector() {
             />
           </Field>
           <Field label="Department">
-            <input
-              className={styles.input}
-              value={flow?.department ?? ''}
-              onChange={(e) => updateCurrentFlow({ department: e.target.value || undefined })}
-              placeholder="e.g. Sales Operations"
-            />
+            <select
+              className={styles.select}
+              value={flow?.departmentId ?? ''}
+              onChange={(e) => handleRootDepartmentChange(e.target.value)}
+            >
+              <option value="">— Unassigned —</option>
+              {departmentList.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+              <option value={NEW_OPTION}>＋ New department…</option>
+            </select>
           </Field>
         </div>
       </aside>
@@ -170,6 +193,18 @@ export default function Inspector() {
       return;
     }
     update({ personaId: value || undefined });
+  };
+
+  const handleDepartmentChange = (value: string) => {
+    if (value === NEW_OPTION) {
+      const name = window.prompt('Name the new department')?.trim();
+      if (!name) return;
+      const id = addDepartment();
+      updateDepartment(id, { name });
+      update({ departmentId: id });
+      return;
+    }
+    update({ departmentId: value || undefined });
   };
 
   const handleFrequencyChange = (value: string) => {
@@ -225,12 +260,19 @@ export default function Inspector() {
         {data.type === 'flow' && (
           <>
             <Field label="Department">
-              <input
-                className={styles.input}
-                value={(data as FlowRefData).department ?? ''}
-                onChange={(e) => update({ department: e.target.value || undefined })}
-                placeholder="e.g. Sales Operations"
-              />
+              <select
+                className={styles.select}
+                value={(data as FlowRefData).departmentId ?? ''}
+                onChange={(e) => handleDepartmentChange(e.target.value)}
+              >
+                <option value="">— Unassigned —</option>
+                {departmentList.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+                <option value={NEW_OPTION}>＋ New department…</option>
+              </select>
             </Field>
             {(() => {
               const exits = getFlowExits(

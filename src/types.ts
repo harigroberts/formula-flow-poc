@@ -29,7 +29,7 @@ export interface FlowRefData extends Record<string, unknown> {
   name: string;
   childFlowId: string;
   description?: string;
-  department?: string;
+  departmentId?: string;
 }
 
 export interface DecisionData extends Record<string, unknown> {
@@ -69,7 +69,7 @@ export interface Flow {
   id: string;
   name: string;
   description: string;
-  department?: string;
+  departmentId?: string;
   parentFlowId: string | null;
   companyName?: string;
 }
@@ -98,12 +98,22 @@ export interface Persona {
   avgWeeklyHours: number;
 }
 
+/**
+ * A department that owns flows and sub-flows. Referenced by id from `Flow.departmentId`
+ * and `FlowRefData.departmentId` rather than free text, so it can be renamed in one place.
+ */
+export interface Department {
+  id: string;
+  name: string;
+}
+
 export interface WorkflowDoc {
   version: 1;
   rootFlowId: string;
   flows: Flow[];
   frequencies: FrequencyCategory[];
   personas: Persona[];
+  departments: Department[];
   nodes: (WFNode & { flowId: string })[];
   edges: (WFEdge & { flowId: string })[];
 }

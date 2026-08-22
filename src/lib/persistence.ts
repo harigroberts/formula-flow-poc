@@ -1,5 +1,5 @@
 import yaml from 'js-yaml';
-import type { WorkflowDoc, FrequencyCategory, Persona, TaskData, FlowRefData } from '@/types';
+import type { WorkflowDoc, FrequencyCategory, Persona, Department, TaskData, FlowRefData, Flow } from '@/types';
 import { getFlowExits } from './exits';
 
 function uid() {
@@ -8,9 +8,10 @@ function uid() {
 
 /**
  * Bring any loaded doc up to the current shape:
- * - guarantees `frequencies` / `personas` arrays exist
- * - migrates legacy free-text `frequency` / `ownerRole` task fields into the
- *   doc-level registries, find-or-creating a category/persona and wiring up the id
+ * - guarantees `frequencies` / `personas` / `departments` arrays exist
+ * - migrates legacy free-text `frequency` / `ownerRole` task fields, and `department`
+ *   fields on flows / flow-reference nodes, into the doc-level registries, find-or-creating
+ *   a category/persona/department and wiring up the id
  * - binds edges leaving a `flow` node to a named sub-flow exit (`sourceHandle` = the child
  *   flow's `end` node id, `data.exit` = its name), and clears handles that no longer resolve
  * Idempotent — safe to run on already-normalised docs.
@@ -18,6 +19,7 @@ function uid() {
 export function normalizeDoc(doc: WorkflowDoc): WorkflowDoc {
   const frequencies: FrequencyCategory[] = [...(doc.frequencies ?? [])];
   const personas: Persona[] = [...(doc.personas ?? [])];
+  const departments: Department[] = [...(doc.departments ?? [])];
 
   const findOrCreateFrequency = (label: string): string => {
     const existing = frequencies.find((f) => f.label === label);
@@ -35,7 +37,22 @@ export function normalizeDoc(doc: WorkflowDoc): WorkflowDoc {
     return created.id;
   };
 
+  const findOrCreateDepartment = (name: string): string => {
+    const existing = departments.find((d) => d.name === name);
+    if (existing) return existing.id;
+    const created: Department = { id: `dept-${uid()}`, name };
+    departments.push(created);
+    return created.id;
+  };
+
   const nodes = doc.nodes.map((node) => {
+    if (node.data.type === 'flow') {
+      const data = node.data as FlowRefData & { department?: string };
+      if (data.departmentId || !data.department) return node;
+      const next = { ...data, departmentId: findOrCreateDepartment(data.department) };
+      delete next.department;
+      return { ...node, data: next };
+    }
     if (node.data.type !== 'task') return node;
     const data = node.data as TaskData & { frequency?: string; ownerRole?: string };
     let next = data;
@@ -50,6 +67,14 @@ export function normalizeDoc(doc: WorkflowDoc): WorkflowDoc {
     delete next.frequency;
     delete next.ownerRole;
     return { ...node, data: next };
+  });
+
+  const flows = doc.flows.map((flow) => {
+    const legacy = flow as Flow & { department?: string };
+    if (legacy.departmentId || !legacy.department) return flow;
+    const next = { ...legacy, departmentId: findOrCreateDepartment(legacy.department) };
+    delete next.department;
+    return next;
   });
 
   // Sub-flow exits: legacy docs have `sourceHandle: null` on every edge leaving a flow node.
@@ -88,7 +113,7 @@ export function normalizeDoc(doc: WorkflowDoc): WorkflowDoc {
     return { ...edge, sourceHandle: fallback.id, data: { ...edge.data, exit: fallback.label } };
   });
 
-  return { ...doc, frequencies, personas, nodes, edges };
+  return { ...doc, frequencies, personas, departments, flows, nodes, edges };
 }
 
 function downloadBlob(content: string, filename: string, mime: string) {
