@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import type { NodeChange, EdgeChange, Connection } from '@xyflow/react';
-import type { WFNode, WFEdge, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData, FrequencyCategory, Persona } from '@/types';
+import type { WFNode, WFEdge, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData, FrequencyCategory, Persona, Department } from '@/types';
 import { seedDoc } from '@/lib/seed';
 import { normalizeDoc } from '@/lib/persistence';
 
@@ -28,6 +28,7 @@ interface WorkflowState {
   selectedNode: () => (WFNode & { flowId: string }) | undefined;
   frequencies: () => FrequencyCategory[];
   personas: () => Persona[];
+  departments: () => Department[];
 
   // navigation
   enterFlow: (childFlowId: string) => void;
@@ -50,6 +51,9 @@ interface WorkflowState {
   addPersona: () => string;
   updatePersona: (id: string, patch: Partial<Persona>) => void;
   deletePersona: (id: string) => void;
+  addDepartment: () => string;
+  updateDepartment: (id: string, patch: Partial<Department>) => void;
+  deleteDepartment: (id: string) => void;
 
   // flow management
   clearCurrentFlow: () => void;
@@ -75,7 +79,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const currentNodes = state.doc.nodes.filter(n => n.flowId === state.currentFlowId);
       const otherNodes = state.doc.nodes.filter(n => n.flowId !== state.currentFlowId);
       const updated = applyNodeChanges(changes, currentNodes) as (WFNode & { flowId: string })[];
-      return { doc: { ...state.doc, nodes: [...otherNodes, ...updated] } };
+      // Keyboard deletion (deleteKeyCode="Delete") comes through here, not deleteNode, so this
+      // is the only place to drop a parent flow node's edge when its exit (an `end` node in the
+      // child flow) is removed. 'yes'/'no' handles can never collide with a node id.
+      const removed = changes.filter(c => c.type === 'remove').map(c => c.id);
+      const edges = removed.length
+        ? state.doc.edges.filter(e => !e.sourceHandle || !removed.includes(e.sourceHandle))
+        : state.doc.edges;
+      return { doc: { ...state.doc, nodes: [...otherNodes, ...updated], edges } };
     });
   },
 
@@ -100,6 +111,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           const branch = e.sourceHandle as 'yes' | 'no';
           e.label = branch === 'yes' ? 'Yes' : 'No';
           e.data = { ...e.data, branch };
+        } else if (e.sourceHandle) {
+          // Sub-flow exit: the handle id is an `end` node inside the child flow. Mirror its name
+          // onto data.exit for the same reason — no edge label, the flow card already shows it.
+          const source = state.doc.nodes.find(n => n.id === e.source);
+          const exitNode = state.doc.nodes.find(n => n.id === e.sourceHandle);
+          if (source?.data.type === 'flow' && exitNode?.data.type === 'end') {
+            e.data = { ...e.data, exit: (exitNode.data as TerminalData).name };
+          }
         }
       });
       return { doc: { ...state.doc, edges: [...otherEdges, ...merged] } };
@@ -116,6 +135,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
   frequencies: () => get().doc.frequencies,
   personas: () => get().doc.personas,
+  departments: () => get().doc.departments,
 
   enterFlow: (childFlowId) => {
     const { doc, breadcrumbs } = get();
@@ -239,15 +259,24 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       const updated = nodes.find(n => n.id === nodeId);
       let flows = state.doc.flows;
+      let edges = state.doc.edges;
       if (updated && updated.data.type === 'flow') {
         const ref = updated.data as FlowRefData;
         flows = state.doc.flows.map(f =>
           f.id === ref.childFlowId
-            ? { ...f, name: ref.name, description: ref.description ?? f.description, department: ref.department ?? f.department }
+            ? { ...f, name: ref.name, description: ref.description ?? f.description, departmentId: ref.departmentId ?? f.departmentId }
             : f
         );
       }
-      return { doc: { ...state.doc, nodes, flows } };
+      // Renaming an `end` node renames the exit it represents on the parent's flow node. The
+      // card label re-derives itself, but the edge's stored data.exit needs refreshing.
+      if (updated && updated.data.type === 'end') {
+        const label = (updated.data as TerminalData).name;
+        edges = state.doc.edges.map(e =>
+          e.sourceHandle === nodeId ? { ...e, data: { ...e.data, exit: label } } : e
+        );
+      }
+      return { doc: { ...state.doc, nodes, flows, edges } };
     });
   },
 
@@ -260,11 +289,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const childFlowId = (node.data as FlowRefData).childFlowId;
         flows = state.doc.flows.filter(f => f.id !== childFlowId);
         const nodes = state.doc.nodes.filter(n => n.id !== nodeId && n.flowId !== childFlowId);
-        const edges = state.doc.edges.filter(e => e.id !== nodeId && e.flowId !== childFlowId);
+        const edges = state.doc.edges.filter(
+          e => e.source !== nodeId && e.target !== nodeId && e.flowId !== childFlowId
+        );
         return { doc: { ...state.doc, flows, nodes, edges }, selectedNodeId: null };
       }
+      // `sourceHandle !== nodeId` drops the parent's edge when an `end` node — i.e. a sub-flow
+      // exit — is deleted; that edge lives on a different canvas, so nothing else catches it.
       const nodes = state.doc.nodes.filter(n => n.id !== nodeId);
-      const edges = state.doc.edges.filter(e => e.source !== nodeId && e.target !== nodeId);
+      const edges = state.doc.edges.filter(
+        e => e.source !== nodeId && e.target !== nodeId && e.sourceHandle !== nodeId
+      );
       return { doc: { ...state.doc, nodes, edges }, selectedNodeId: null };
     });
   },
@@ -341,6 +376,44 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }));
   },
 
+  addDepartment: () => {
+    const id = `dept-${uid()}`;
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        departments: [...state.doc.departments, { id, name: 'New department' }],
+      },
+    }));
+    return id;
+  },
+
+  updateDepartment: (id, patch) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        departments: state.doc.departments.map(d => (d.id === id ? { ...d, ...patch } : d)),
+      },
+    }));
+  },
+
+  deleteDepartment: (id) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        departments: state.doc.departments.filter(d => d.id !== id),
+        // Unlink any flows and flow-reference nodes that referenced it.
+        flows: state.doc.flows.map(f =>
+          f.departmentId === id ? { ...f, departmentId: undefined } : f
+        ),
+        nodes: state.doc.nodes.map(n =>
+          n.data.type === 'flow' && (n.data as FlowRefData).departmentId === id
+            ? { ...n, data: { ...n.data, departmentId: undefined } as FlowRefData }
+            : n
+        ),
+      },
+    }));
+  },
+
   clearCurrentFlow: () => {
     set((state) => ({
       doc: {
@@ -349,7 +422,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         edges: state.doc.edges.filter(e => e.flowId !== state.currentFlowId),
         flows: state.doc.flows.map(f =>
           f.id === state.currentFlowId
-            ? { ...f, name: '', description: '', department: undefined, companyName: undefined }
+            ? { ...f, name: '', description: '', departmentId: undefined, companyName: undefined }
             : f
         ),
       },

@@ -127,6 +127,29 @@
   color: var(--fg-muted);
 }
 
+/* Read-only list — sub-flow exits, derived from the child flow's End nodes */
+.exitList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exitItem {
+  font-size: 12px;
+  color: var(--color-blue);
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-blue) 5%, transparent);
+}
+
+.exitEmpty {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--fg-subtle);
+  font-style: italic;
+}
+
 .input,
 .textarea,
 .select {

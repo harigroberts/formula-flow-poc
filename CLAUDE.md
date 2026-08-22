@@ -71,10 +71,29 @@ The `Flow` type also carries an optional `companyName?: string` on the root flow
 
 **Node types:**
 - `task` — a unit of work; carries rich metadata (persona/owner, time, frequency, tools, pain points, knowledge-access, etc.)
-- `flow` — a reference to a child `Flow`; double-click to drill in
+- `flow` — a reference to a child `Flow`; double-click to drill in. When the child flow has two or more
+  `end` nodes the card grows a footer with one labelled **exit** row per end node, each with its own
+  connection point (see *Sub-flow exits* below)
 - `decision` — a conditional gateway (diamond); outgoing edges carry `sourceHandle`/`label`/`data.branch` = `"yes"` or `"no"`. Also carries optional knowledge metadata for identifying ML/decision-support opportunities (see below).
 - `start` — pipeline entry point or sub-flow entry (doubles as entry node inside a child flow)
-- `end` — pipeline exit point or sub-flow exit (doubles as exit node inside a child flow)
+- `end` — pipeline exit point or sub-flow exit (doubles as exit node inside a child flow). Inside a child
+  flow, each `end` node **is** one of that sub-flow's named exits
+
+**Sub-flow exits** — a sub-flow can finish in more than one state. Its exits are **derived live** from the
+`end` nodes on the child canvas (`getFlowExits()` in `lib/exits.ts`), ordered by their y position; they are
+never stored on `FlowRefData`, so adding, renaming or deleting an End node inside the child immediately
+changes the parent's exit points. Each outgoing edge of a `flow` node records which exit it leaves from,
+mirroring the decision-branch convention:
+
+```ts
+WFEdge {
+  sourceHandle: 'n-billing-end-failed'  // the child flow's `end` node id — the durable link
+  data: { exit: 'Payment failed' }      // that node's name — refreshed when the end node is renamed
+}
+```
+
+With 0 or 1 exits the flow node renders exactly as before (one centred handle, no footer). `normalizeDoc()`
+backfills `sourceHandle`/`data.exit` on legacy edges and clears handles that no longer resolve.
 
 **Decision node knowledge metadata** (all optional; edited via progressive disclosure in the Inspector):
 
@@ -152,6 +171,10 @@ server/
 
 - **Brand tokens** — all colours and fonts come from CSS custom properties defined in `src/theme.css`; don't hardcode hex values in components.
 - **State** — `useWorkflowStore` is the single source of truth. Components never hold their own copy of nodes/edges.
+- **Sub-flow exits** — derived from the child flow's `end` nodes via `getFlowExits()`, never duplicated onto
+  `FlowRefData`. Edges leaving a `flow` node carry `sourceHandle` (the end node's id) and `data.exit` (its
+  name); `FlowNode` must call `useUpdateNodeInternals()` whenever that handle set changes, and must select
+  from the store via `useShallow` over a flat string array so React Flow doesn't see a new snapshot each render.
 - **Org-wide assumptions** — frequency counts and personas live on the doc and are edited in the Assumptions slide-over; tasks reference them by id (`frequencyId` / `personaId`), never by free text.
 - **Model** — always `claude-haiku-4-5` in `server/analyze.ts`; change there if upgrading.
 - **Prompt caching** — the system prompt in `server/analyze.ts` uses `cache_control: { type: 'ephemeral' }` to avoid re-tokenising on repeated calls.
