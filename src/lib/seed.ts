@@ -25,8 +25,8 @@ export const seedDoc: WorkflowDoc = {
     },
   ],
   frequencies: [
-    { id: 'freq-new-customer', label: 'per new customer', occurrencesPerMonth: 8 },
-    { id: 'freq-new-customer-ent', label: 'per new customer (enterprise)', occurrencesPerMonth: 2 },
+    { id: 'freq-new-customer', label: 'per new customer', occurrencesPerMonth: 16 },
+    { id: 'freq-new-customer-ent', label: 'per new customer (enterprise)', occurrencesPerMonth: 4 },
   ],
   personas: [
     { id: 'persona-csm', role: 'Customer Success Manager', workerCount: 3, avgWeeklyHours: 40 },
