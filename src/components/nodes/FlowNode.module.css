@@ -53,3 +53,32 @@
   opacity: 0.7;
   font-style: italic;
 }
+
+/* Named exits — one row per `end` node in the child flow. The negative side margins cancel
+   `.node`'s horizontal padding so each row reaches the card border; React Flow anchors a
+   right-side handle with `right: 0; translate(50%, -50%)`, so that is where it lands. */
+.exits {
+  margin: 8px -16px -4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-light-gray);
+  text-align: right;
+}
+
+/* `position: relative` makes each row the containing block for its own handle, so the handle
+   stays vertically centred on its label as rows reflow — no per-handle offset maths. */
+.exitRow {
+  position: relative;
+  padding: 3px 16px;
+}
+
+.exitLabel {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-blue);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  pointer-events: none;
+}

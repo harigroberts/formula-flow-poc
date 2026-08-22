@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useWorkflowStore } from '@/store/workflowStore';
+import { getFlowExits } from '@/lib/exits';
 import type { TaskData, FlowRefData, DecisionData, TerminalData } from '@/types';
 import styles from './Inspector.module.css';
 
@@ -222,14 +223,37 @@ export default function Inspector() {
         </Field>
 
         {data.type === 'flow' && (
-          <Field label="Department">
-            <input
-              className={styles.input}
-              value={(data as FlowRefData).department ?? ''}
-              onChange={(e) => update({ department: e.target.value || undefined })}
-              placeholder="e.g. Sales Operations"
-            />
-          </Field>
+          <>
+            <Field label="Department">
+              <input
+                className={styles.input}
+                value={(data as FlowRefData).department ?? ''}
+                onChange={(e) => update({ department: e.target.value || undefined })}
+                placeholder="e.g. Sales Operations"
+              />
+            </Field>
+            {(() => {
+              const exits = getFlowExits(
+                useWorkflowStore.getState().doc,
+                (data as FlowRefData).childFlowId,
+              );
+              return (
+                <Field label="Exits">
+                  {exits.length > 0 ? (
+                    <div className={styles.exitList}>
+                      {exits.map((ex) => (
+                        <div key={ex.id} className={styles.exitItem}>{ex.label}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className={styles.exitEmpty}>
+                      Add End nodes inside this sub-flow to give it named exits.
+                    </span>
+                  )}
+                </Field>
+              );
+            })()}
+          </>
         )}
 
         {isDecision && (() => {

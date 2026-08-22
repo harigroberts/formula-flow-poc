@@ -8,7 +8,7 @@ The workflow JSON uses the following node types:
   - \`inputSource\`: string — where the input comes from when it must be \`"ask"\`-ed or \`"rebuild"\`-ed
   - \`knowledgeCaptured\`: boolean — whether the tacit knowledge needed (when \`"ask"\`) is documented anywhere
   - \`expertiseLevel\`: \`"junior"\` | \`"mid"\` | \`"senior"\` | \`"expert"\` — the expertise required when info comes from a colleague
-- **flow** — a reference to a named child sub-flow (see \`childFlowId\`); double-click in the UI to drill in
+- **flow** — a reference to a named child sub-flow (see \`childFlowId\`); double-click in the UI to drill in. A sub-flow may finish in more than one state: each \`end\` node inside the child flow is a named **exit**, and the flow node's outgoing edges carry \`sourceHandle\` (the id of that \`end\` node) and \`data.exit\` (its name) to say which outcome the edge follows. Treat a flow node with several distinct \`data.exit\` values as a branching point, not an opaque box.
 - **decision** — a conditional gateway (diamond shape); outgoing edges carry \`sourceHandle\`, \`label\` ("Yes"/"No"), and \`data.branch\` ("yes"/"no") to identify each branch. Decision nodes may carry optional knowledge metadata:
   - \`informationCompleteness\`: \`"full"\` | \`"partial"\` | \`"gut_feel"\` — how complete the available information is when this decision is made
   - \`decisionBasis\`: \`"rules"\` | \`"experience"\` | \`"intuition"\` — what the decision is based on
@@ -18,9 +18,9 @@ The workflow JSON uses the following node types:
   - \`outcomeMeasured\`: boolean — whether those outcomes are tracked with measurable results
   - \`outcomeDataSource\`: string — where outcome data lives (e.g. "Salesforce closed-won/lost history")
 - **start** — pipeline entry point or sub-flow entry; no incoming edges in normal usage
-- **end** — pipeline exit point or sub-flow exit; no outgoing edges in normal usage
+- **end** — pipeline exit point or sub-flow exit; no outgoing edges in normal usage. Inside a child flow, each \`end\` node **is** one of that sub-flow's named exits: its \`name\` (e.g. "Payment failed") is the outcome, and it maps onto the parent's flow node via the \`sourceHandle\`/\`data.exit\` on that node's outgoing edges. Control resumes in the parent flow from whichever exit was reached.
 
-When reading edges from a decision node, use \`data.branch\` (or \`label\`) to understand which path is taken under which condition.
+When reading edges from a decision node, use \`data.branch\` (or \`label\`) to understand which path is taken under which condition. When reading edges from a flow node, use \`data.exit\` the same way — it names the sub-flow outcome that leads down that path.
 
 ## Payload structure
 The user message contains a JSON object with:

@@ -174,6 +174,17 @@ export const seedDoc: WorkflowDoc = {
         description: 'Customer is live, accounts provisioned, billing active, and kickoff sent.',
       },
     },
+    {
+      id: 'n-end-billing-blocked',
+      type: 'end',
+      position: { x: 1240, y: -40 },
+      flowId: 'flow-root',
+      data: {
+        type: 'end',
+        name: 'Billing blocked',
+        description: 'Billing setup could not complete; finance picks this up before onboarding continues.',
+      },
+    },
 
     // ── Billing Setup sub-flow nodes ─────────────────────────────────────────
     {
@@ -253,14 +264,38 @@ export const seedDoc: WorkflowDoc = {
       },
     },
     {
+      id: 'n-billing-decision',
+      type: 'decision',
+      position: { x: 890, y: 40 },
+      flowId: 'flow-billing',
+      data: {
+        type: 'decision',
+        name: 'Payment received?',
+        description: 'Finance checks whether the first invoice cleared before handing back to onboarding.',
+        informationCompleteness: 'full',
+        decisionBasis: 'rules',
+      },
+    },
+    {
       id: 'n-billing-end',
       type: 'end',
-      position: { x: 880, y: 96 },
+      position: { x: 1120, y: -30 },
       flowId: 'flow-billing',
       data: {
         type: 'end',
-        name: 'Exit',
-        description: 'Billing setup complete; control returns to the parent flow.',
+        name: 'Billing active',
+        description: 'Invoice cleared; billing setup complete and control returns to the parent flow.',
+      },
+    },
+    {
+      id: 'n-billing-end-failed',
+      type: 'end',
+      position: { x: 1120, y: 230 },
+      flowId: 'flow-billing',
+      data: {
+        type: 'end',
+        name: 'Payment failed',
+        description: 'Card declined or invoice unpaid; control returns to the parent flow on this exit.',
       },
     },
 
@@ -380,14 +415,57 @@ export const seedDoc: WorkflowDoc = {
     },
     { id: 'e-2', source: 'n-crm', target: 'n-billing', flowId: 'flow-root' },
     { id: 'e-3', source: 'n-crm', target: 'n-provisioning', flowId: 'flow-root' },
-    { id: 'e-4', source: 'n-billing', target: 'n-kickoff', flowId: 'flow-root' },
-    { id: 'e-5', source: 'n-provisioning', target: 'n-kickoff', flowId: 'flow-root' },
+    // The Billing Setup sub-flow has two named exits, so its edges name which one they leave from.
+    {
+      id: 'e-4',
+      source: 'n-billing',
+      target: 'n-kickoff',
+      sourceHandle: 'n-billing-end',
+      data: { exit: 'Billing active' },
+      flowId: 'flow-root',
+    },
+    {
+      id: 'e-4-failed',
+      source: 'n-billing',
+      target: 'n-end-billing-blocked',
+      sourceHandle: 'n-billing-end-failed',
+      data: { exit: 'Payment failed' },
+      flowId: 'flow-root',
+    },
+    {
+      id: 'e-5',
+      source: 'n-provisioning',
+      target: 'n-kickoff',
+      sourceHandle: 'n-provisioning-end',
+      data: { exit: 'Exit' },
+      flowId: 'flow-root',
+    },
     { id: 'e-end', source: 'n-kickoff', target: 'n-end-complete', flowId: 'flow-root' },
     // Billing sub-flow
     { id: 'e-b0', source: 'n-billing-start', target: 'n-stripe-customer', flowId: 'flow-billing' },
     { id: 'e-b1', source: 'n-stripe-customer', target: 'n-subscription', flowId: 'flow-billing' },
     { id: 'e-b2', source: 'n-subscription', target: 'n-invoice', flowId: 'flow-billing' },
-    { id: 'e-b3', source: 'n-invoice', target: 'n-billing-end', flowId: 'flow-billing' },
+    { id: 'e-b3', source: 'n-invoice', target: 'n-billing-decision', flowId: 'flow-billing' },
+    // The decision's branches land on the two exits, which surface as labelled exit points
+    // on the "Billing Setup" node in the root flow.
+    {
+      id: 'e-b4-yes',
+      source: 'n-billing-decision',
+      target: 'n-billing-end',
+      sourceHandle: 'yes',
+      label: 'Yes',
+      data: { branch: 'yes' },
+      flowId: 'flow-billing',
+    },
+    {
+      id: 'e-b4-no',
+      source: 'n-billing-decision',
+      target: 'n-billing-end-failed',
+      sourceHandle: 'no',
+      label: 'No',
+      data: { branch: 'no' },
+      flowId: 'flow-billing',
+    },
     // Provisioning sub-flow
     { id: 'e-p0', source: 'n-provisioning-start', target: 'n-create-users', flowId: 'flow-provisioning' },
     { id: 'e-p1', source: 'n-create-users', target: 'n-sso', flowId: 'flow-provisioning' },

@@ -1,9 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  useNodesInitialized,
+  useReactFlow,
   type NodeTypes,
   type NodeMouseHandler,
 } from '@xyflow/react';
@@ -16,6 +18,10 @@ import EndNode from './nodes/EndNode';
 import type { WFNodeData, FlowRefData } from '@/types';
 import styles from './Canvas.module.css';
 
+// maxZoom 1 keeps a sparse canvas at natural size instead of blowing the cards up to 2x,
+// which is React Flow's default fit ceiling.
+const FIT_VIEW_OPTIONS = { padding: 0.2, maxZoom: 1 };
+
 const nodeTypes: NodeTypes = {
   task: TaskNode,
   flow: FlowNode,
@@ -26,6 +32,7 @@ const nodeTypes: NodeTypes = {
 
 export default function Canvas() {
   const {
+    currentFlowId,
     currentNodes,
     currentEdges,
     onNodesChange,
@@ -42,6 +49,21 @@ export default function Canvas() {
 
   const nodes = currentNodes();
   const edges = currentEdges();
+
+  // Fit the viewport once per canvas: on first paint and whenever we drill into or back out of
+  // a flow. The `fitView` prop alone runs before the nodes have been measured, which leaves the
+  // viewport at its default zoom of 1 — on a wide flow that reads as "far too zoomed in".
+  // `useNodesInitialized` waits until every node has real dimensions to size the fit against.
+  const nodesInitialized = useNodesInitialized();
+  const { fitView } = useReactFlow();
+  const fittedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!nodesInitialized || fittedFor.current === currentFlowId) return;
+    const isFirstFit = fittedFor.current === null;
+    fittedFor.current = currentFlowId;
+    fitView({ ...FIT_VIEW_OPTIONS, duration: isFirstFit ? 0 : 200 });
+  }, [nodesInitialized, currentFlowId, fitView]);
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
     (_event, node) => {
@@ -107,7 +129,8 @@ export default function Canvas() {
         onDrop={onDrop}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={FIT_VIEW_OPTIONS}
+        minZoom={0.2}
         deleteKeyCode="Delete"
         proOptions={{ hideAttribution: true }}
       >

@@ -1,5 +1,6 @@
 import yaml from 'js-yaml';
-import type { WorkflowDoc, FrequencyCategory, Persona, TaskData } from '@/types';
+import type { WorkflowDoc, FrequencyCategory, Persona, TaskData, FlowRefData } from '@/types';
+import { getFlowExits } from './exits';
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -10,6 +11,8 @@ function uid() {
  * - guarantees `frequencies` / `personas` arrays exist
  * - migrates legacy free-text `frequency` / `ownerRole` task fields into the
  *   doc-level registries, find-or-creating a category/persona and wiring up the id
+ * - binds edges leaving a `flow` node to a named sub-flow exit (`sourceHandle` = the child
+ *   flow's `end` node id, `data.exit` = its name), and clears handles that no longer resolve
  * Idempotent — safe to run on already-normalised docs.
  */
 export function normalizeDoc(doc: WorkflowDoc): WorkflowDoc {
@@ -49,7 +52,43 @@ export function normalizeDoc(doc: WorkflowDoc): WorkflowDoc {
     return { ...node, data: next };
   });
 
-  return { ...doc, frequencies, personas, nodes };
+  // Sub-flow exits: legacy docs have `sourceHandle: null` on every edge leaving a flow node.
+  // React Flow falls back to the first source handle in that case, so they still render — this
+  // just makes the binding explicit in the stored doc, and repairs handles that no longer exist
+  // (old rows pushed in by Supabase realtime).
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const exitCache = new Map<string, ReturnType<typeof getFlowExits>>();
+  const docForExits = { ...doc, nodes } as WorkflowDoc;
+  const exitsFor = (childFlowId: string) => {
+    let cached = exitCache.get(childFlowId);
+    if (!cached) {
+      cached = getFlowExits(docForExits, childFlowId);
+      exitCache.set(childFlowId, cached);
+    }
+    return cached;
+  };
+
+  const edges = (doc.edges ?? []).map((edge) => {
+    const source = nodeById.get(edge.source);
+    if (source?.data.type !== 'flow') {
+      // Only decision branches legitimately carry a non-node handle id.
+      if (edge.sourceHandle && edge.sourceHandle !== 'yes' && edge.sourceHandle !== 'no' && !nodeById.has(edge.sourceHandle)) {
+        return { ...edge, sourceHandle: undefined };
+      }
+      return edge;
+    }
+    const exits = exitsFor((source.data as FlowRefData).childFlowId);
+    const bound = edge.sourceHandle ? exits.find((x) => x.id === edge.sourceHandle) : undefined;
+    if (bound) {
+      return edge.data?.exit === bound.label ? edge : { ...edge, data: { ...edge.data, exit: bound.label } };
+    }
+    // Either unbound (legacy) or pointing at an end node that has since been deleted.
+    const fallback = exits[0];
+    if (!fallback) return edge.sourceHandle ? { ...edge, sourceHandle: undefined } : edge;
+    return { ...edge, sourceHandle: fallback.id, data: { ...edge.data, exit: fallback.label } };
+  });
+
+  return { ...doc, frequencies, personas, nodes, edges };
 }
 
 function downloadBlob(content: string, filename: string, mime: string) {

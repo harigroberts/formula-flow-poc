@@ -53,6 +53,12 @@ export interface TerminalData extends Record<string, unknown> {
 
 export interface WFEdgeData extends Record<string, unknown> {
   branch?: 'yes' | 'no';
+  /**
+   * For an edge leaving a `flow` node: the name of the child flow's `end` node it exits from.
+   * The durable link is the edge's `sourceHandle` (= that end node's id); this is the label,
+   * kept in sync when the end node is renamed.
+   */
+  exit?: string;
 }
 
 export type WFNodeData = TaskData | FlowRefData | DecisionData | TerminalData;
