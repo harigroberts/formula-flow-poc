@@ -59,6 +59,13 @@ export interface WFEdgeData extends Record<string, unknown> {
    * kept in sync when the end node is renamed.
    */
   exit?: string;
+  /**
+   * For an edge that closes a feedback loop (detected via `findLoops` in `lib/cycles.ts`,
+   * never stored as a flag): the share of runs (0-100) that take it. A task inside the loop
+   * therefore runs more than once per workflow run — see the impact-maths note in
+   * `server/prompts/shared.ts`.
+   */
+  retryRatePct?: number;
 }
 
 export type WFNodeData = TaskData | FlowRefData | DecisionData | TerminalData;

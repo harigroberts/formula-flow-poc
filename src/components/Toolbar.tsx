@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useWorkflowStore } from '@/store/workflowStore';
 import { exportJson, exportYaml, importFile } from '@/lib/persistence';
+import { findAllLoops } from '@/lib/cycles';
 import styles from './Toolbar.module.css';
 
 import type { SyncStatus } from '@/lib/useSupabaseSync';
@@ -26,11 +27,22 @@ export default function Toolbar({
   syncConfigured = false,
   onOpenSync,
 }: ToolbarProps) {
-  const { getDoc, loadDoc, currentFlow, clearCurrentFlow } = useWorkflowStore();
+  const { getDoc, loadDoc, currentFlow, clearCurrentFlow, goToFlow, setSelectedEdge } = useWorkflowStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState('');
 
   const flow = currentFlow();
+  // Document-wide, not just the current flow — the point is to surface a problem hiding in
+  // a sub-flow the user isn't looking at. Cheap enough to recompute on every render at this
+  // graph size; see the memoised version in Canvas.tsx for why that isn't needed here too.
+  const unguardedLoops = findAllLoops(getDoc()).filter((l) => !l.guarded);
+
+  const handleJumpToIssue = () => {
+    const first = unguardedLoops[0];
+    if (!first) return;
+    goToFlow(first.flowId);
+    setSelectedEdge(first.backEdgeIds[0]);
+  };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,6 +112,15 @@ export default function Toolbar({
           style={{ display: 'none' }}
           onChange={handleImport}
         />
+        {unguardedLoops.length > 0 && (
+          <button
+            className={styles.issueChip}
+            onClick={handleJumpToIssue}
+            title="Jump to the first feedback loop with no decision node to exit through"
+          >
+            ⚠ {unguardedLoops.length} loop{unguardedLoops.length > 1 ? 's' : ''} with no exit
+          </button>
+        )}
         <button
           className="btn-primary"
           onClick={onAnalyse}

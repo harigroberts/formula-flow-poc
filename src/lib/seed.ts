@@ -308,6 +308,46 @@ export const seedDoc: WorkflowDoc = {
         description: 'Card declined or invoice unpaid; control returns to the parent flow on this exit.',
       },
     },
+    // A retry loop: an unpaid invoice sends the run back to re-invoice rather than
+    // straight to the "Payment failed" exit. See the e-chase-* edges below — the loop is
+    // {n-invoice, n-billing-decision, n-chase-payment, n-chase-escalate}, guarded by both
+    // decisions (each can still reach one of the two exits above).
+    {
+      id: 'n-chase-payment',
+      type: 'task',
+      position: { x: 620, y: 320 },
+      flowId: 'flow-billing',
+      data: {
+        type: 'task',
+        name: 'Chase payment',
+        description: 'Finance follows up with the customer by phone or email to resolve the declined card or unpaid invoice.',
+        personaId: 'persona-finance',
+        humanMinutesPerRun: 15,
+        frequencyId: 'freq-new-customer',
+        tools: ['Stripe Dashboard', 'Gmail', 'Phone'],
+        inputs: ['Payment failed reason'],
+        outputs: ['Updated payment method or promise to pay'],
+        dataSources: ['Stripe'],
+        isManual: true,
+        dataDriven: false,
+        painPoints: 'Chasing payment is repetitive and manual; no automated dunning sequence exists.',
+        inputAccessibility: 'search',
+        searchTime: 5,
+      },
+    },
+    {
+      id: 'n-chase-escalate',
+      type: 'decision',
+      position: { x: 890, y: 330 },
+      flowId: 'flow-billing',
+      data: {
+        type: 'decision',
+        name: 'Escalate to collections?',
+        description: 'Finance decides whether to escalate an unresolved payment to collections or try invoicing again.',
+        informationCompleteness: 'partial',
+        decisionBasis: 'experience',
+      },
+    },
 
     // ── Account Provisioning sub-flow nodes ──────────────────────────────────
     {
@@ -470,10 +510,32 @@ export const seedDoc: WorkflowDoc = {
     {
       id: 'e-b4-no',
       source: 'n-billing-decision',
-      target: 'n-billing-end-failed',
+      target: 'n-chase-payment',
       sourceHandle: 'no',
       label: 'No',
       data: { branch: 'no' },
+      flowId: 'flow-billing',
+    },
+    { id: 'e-chase-0', source: 'n-chase-payment', target: 'n-chase-escalate', flowId: 'flow-billing' },
+    {
+      id: 'e-chase-yes',
+      source: 'n-chase-escalate',
+      target: 'n-billing-end-failed',
+      sourceHandle: 'yes',
+      label: 'Yes',
+      data: { branch: 'yes' },
+      flowId: 'flow-billing',
+    },
+    // The back edge: unresolved but not yet worth escalating, so the run goes back to
+    // re-invoice. `retryRatePct` is the share of billing runs Finance expects to take
+    // this path — the analysis prompt uses it to scale a looped task's time-saved figure.
+    {
+      id: 'e-chase-no',
+      source: 'n-chase-escalate',
+      target: 'n-invoice',
+      sourceHandle: 'no',
+      label: 'No',
+      data: { branch: 'no', retryRatePct: 20 },
       flowId: 'flow-billing',
     },
     // Provisioning sub-flow

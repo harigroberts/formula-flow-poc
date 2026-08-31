@@ -1,5 +1,5 @@
 import yaml from 'js-yaml';
-import type { WorkflowDoc, FrequencyCategory, Persona, Department, TaskData, FlowRefData, Flow } from '@/types';
+import type { WorkflowDoc, FrequencyCategory, Persona, Department, TaskData, FlowRefData, Flow, WFEdge } from '@/types';
 import { getFlowExits } from './exits';
 
 function uid() {
@@ -93,7 +93,16 @@ export function normalizeDoc(doc: WorkflowDoc): WorkflowDoc {
     return cached;
   };
 
-  const edges = (doc.edges ?? []).map((edge) => {
+  // A hand-edited or stale synced doc could inject a non-numeric or out-of-range value here;
+  // clamp rather than trust it, since it feeds directly into the impact maths Claude runs.
+  const clampRetryRate = (edge: WFEdge & { flowId: string }): WFEdge & { flowId: string } => {
+    const raw = edge.data?.retryRatePct;
+    if (raw === undefined) return edge;
+    const clamped = typeof raw === 'number' && Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : undefined;
+    return clamped === raw ? edge : { ...edge, data: { ...edge.data, retryRatePct: clamped } };
+  };
+
+  const edges = (doc.edges ?? []).map(clampRetryRate).map((edge) => {
     const source = nodeById.get(edge.source);
     if (source?.data.type !== 'flow') {
       // Only decision branches legitimately carry a non-node handle id.

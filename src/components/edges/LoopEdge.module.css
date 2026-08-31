@@ -1,0 +1,24 @@
+.label {
+  position: absolute;
+  pointer-events: all;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-paper);
+}
+
+.label[data-variant='guarded'] {
+  color: var(--color-mustard);
+  border: 1px solid color-mix(in srgb, var(--color-mustard) 40%, transparent);
+}
+
+.label[data-variant='unguarded'] {
+  color: var(--color-error);
+  border: 1px solid color-mix(in srgb, var(--color-error) 45%, transparent);
+  font-weight: 700;
+}

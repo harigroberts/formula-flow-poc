@@ -96,6 +96,22 @@ WFEdge {
 With 0 or 1 exits the flow node renders exactly as before (one centred handle, no footer). `normalizeDoc()`
 backfills `sourceHandle`/`data.exit` on legacy edges and clears handles that no longer resolve.
 
+**Feedback loops** — the graph is not required to be a DAG. A loop happens when a decision's "No"
+branch (or any edge) points back at a node upstream of it — e.g. a payment-chase decision sending
+the run back to re-invoice. Like sub-flow exits, a loop is **never stored**: `findLoops()` in
+`lib/cycles.ts` re-derives every strongly-connected component of a flow's node graph on demand
+(Tarjan's SCC). A loop is `guarded` when at least one decision node inside it has an edge leaving
+the loop; `guarded: false` means the loop has no way out and is flagged as a modelling error,
+both on the canvas (the back edge renders in `--color-error` with a "⚠ no exit" label) and via a
+toolbar chip that jumps to the first one anywhere in the document. The one thing that can't be
+derived — how often the loop is actually taken — lives on the closing edge as
+`WFEdgeData.retryRatePct` (0-100), editable in the Inspector when that edge is selected. Back
+edges render via the `loopback` custom edge type (`components/edges/LoopEdge.tsx`), decorated onto
+the store's edges at render time in `Canvas.tsx` — this never touches `doc.edges`, so it doesn't
+reach `getDoc()`, export, or the analysis payload. The analysis payload instead carries a
+pre-computed `loops` array (see the Analysis API contract below) so Claude doesn't have to
+re-derive cycles from a flat edge list itself.
+
 **Decision node knowledge metadata** (all optional; edited via progressive disclosure in the Inspector):
 
 The Inspector reveals fields in two tiers based on what the user has already entered.
@@ -143,6 +159,7 @@ src/
   lib/
     seed.ts             — seed WorkflowDoc (Customer Onboarding example)
     persistence.ts      — exportJson, exportYaml, importFile, normalizeDoc
+    cycles.ts           — findLoops / findAllLoops: derives feedback loops (Tarjan's SCC) from the graph
     api.ts              — analyzeTasks / analyzeSubFlow / analyzeStrategic → the three /api/analyze* endpoints
     analysisRunner.ts   — chains the three analysis levels, feeding each into the next; emits progress per stage
     useAnalysis.ts      — hook owning the multi-level run (result, stage, error); kept out of the store on purpose
@@ -165,6 +182,8 @@ src/
       StartNode.tsx      — pipeline/flow entry terminator
       EndNode.tsx        — pipeline/flow exit terminator
       TerminalNode.module.css — shared styles for Start and End nodes
+    edges/
+      LoopEdge.tsx       — dashed, routed "loopback" edge type for feedback-loop back edges
 server/
   index.ts              — Express app; POST /api/analyze{,/subflow,/strategic}, GET /api/health
   analyze.ts            — the three Anthropic SDK calls, prompt caching, JSON parsing, LEVELS descriptor
@@ -185,6 +204,12 @@ server/
   `FlowRefData`. Edges leaving a `flow` node carry `sourceHandle` (the end node's id) and `data.exit` (its
   name); `FlowNode` must call `useUpdateNodeInternals()` whenever that handle set changes, and must select
   from the store via `useShallow` over a flat string array so React Flow doesn't see a new snapshot each render.
+- **Feedback loops** — derived from topology via `findLoops()`/`findAllLoops()` in `lib/cycles.ts`, never
+  stored as a flag on a node or edge; the only new stored field is `WFEdgeData.retryRatePct` on the edge
+  that closes the loop. `Canvas.tsx` decorates matching edges with the `loopback` type at render time only —
+  don't move that decoration into the store, it must not reach `doc.edges`, export, sync, or the analysis
+  payload (which carries its own pre-computed, named `loops` array instead — see `serializeLoop()` in
+  `lib/api.ts`).
 - **Org-wide assumptions** — frequency counts and personas live on the doc and are edited in the Assumptions slide-over; tasks reference them by id (`frequencyId` / `personaId`), never by free text.
 - **Models** — two, both declared at the top of `server/analyze.ts`: `TASK_MODEL` (`claude-haiku-4-5`) for the
   high-volume per-node pass, `INTEGRATION_MODEL` (`claude-opus-5`) for the two integrative passes, which run with
@@ -260,14 +285,20 @@ cannot read it and the "cached" badge silently never appears. The client surface
 Every request carries the shared graph and registry fields:
 
 ```json
-{ "flows": Flow[], "nodes": WFNode[], "edges": WFEdge[],
+{ "flows": Flow[], "nodes": WFNode[], "edges": WFEdge[], "loops": SerializedLoop[],
   "frequencies": FrequencyCategory[], "personas": Persona[], "departments": Department[] }
 ```
 
 Nodes and edges are slimmed by `slimNode()` / `slimEdge()` in `lib/api.ts` — React Flow's canvas geometry and selection
 state are stripped, since the payload is echoed through all three passes. The `frequencies` /
 `personas` registries let Claude join each task to its monthly run count and its owner's
-capacity; `departments` lets the strategic pass see cross-department hand-offs.
+capacity; `departments` lets the strategic pass see cross-department hand-offs. `loops` is built by
+`serializeLoop()` wrapping `findLoops()`/`findAllLoops()` (`lib/cycles.ts`) with node names and an `id` —
+never re-derived by the model — carrying `{ id, flowId, nodeIds, nodeNames, guarded, guardedByNodeIds,
+backEdges: [{ from, to, branch, retryRatePct }] }` per loop; `guarded: false` means the loop has no
+decision node able to leave it, which the prompt treats as a modelling error to flag rather than a normal
+finding. The `id` field is what lets `canonical()` sort this array for the cache key the same way it
+already sorts `flows`/`nodes`/`edges` — see **What keeps the hit rate up** above.
 
 Level 2 additionally sends `{ flow, parentContext: { parentFlowName, exits }, taskFindings,
 childAnalyses }`, scoped to that one flow. Level 3 additionally sends `{ taskFindings,
@@ -358,5 +389,6 @@ the verdict carries the explicit reason no integrated approach beats task-by-tas
 2. ~~**Decision-node knowledge metadata**~~ — **Done.** Progressive-disclosure Inspector fields (`informationCompleteness`, `decisionBasis`, + Tier-2 stakes/history fields); ML/gut-feel canvas badge; Claude produces decision-node findings.
 3. ~~**Task-node knowledge-access metadata**~~ — **Done (knowledge-access / "blue" branch).** `inputAccessibility` + Tier-2 fields; RAG-KB/info-gap badge; cross-graph pass in the prompt. The "purple" judgement-type branch (`judgementType`, automation/ML signals) remains to do.
 4. ~~**Multi-level analysis**~~ — **Done.** Sub-flow and whole-workflow strategic passes chained on top of the per-task pass, each taking the level(s) below as input, with "no improvement over the level below" as an explicit first-class result. Results are cached in Supabase by a content hash of each level's own graph slice, so an unchanged workflow re-analyses in well under a second.
-5. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
-6. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.
+5. ~~**Feedback loops**~~ — **Done.** The graph no longer has to be a DAG; `findLoops()` derives strongly-connected components live, flags any loop with no decision node able to exit it (canvas + toolbar chip), and a `retryRatePct` on the closing edge lets the analysis scale a looped task's time-saved figure by its expected number of passes.
+6. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
+7. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.

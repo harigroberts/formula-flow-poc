@@ -5,6 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
 }
 
 .diamond {
@@ -15,22 +16,22 @@
   height: 85px;
   transform: translate(-50%, -50%) rotate(45deg);
   background: var(--color-paper);
-  border: 2px solid var(--color-blue);
+  border: 2px solid var(--line);
   border-radius: 4px;
   box-shadow: var(--shadow-sm);
   transition:
-    box-shadow var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out);
+    box-shadow   var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .wrapper:hover .diamond {
   box-shadow: var(--shadow-md);
-  background: color-mix(in srgb, var(--color-blue) 6%, transparent);
+  border-color: var(--color-orange);
 }
 
 .selected .diamond {
-  border-color: var(--color-blue) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-blue) 22%, transparent), var(--shadow-md) !important;
+  border-color: var(--color-orange) !important;
+  box-shadow: 0 0 0 3px rgba(232, 118, 58, 0.18), var(--shadow-md) !important;
 }
 
 .content {

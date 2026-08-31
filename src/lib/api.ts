@@ -1,4 +1,5 @@
 import { getFlowExits } from '@/lib/exits';
+import { findLoops, type Loop } from '@/lib/cycles';
 import type {
   AnalysisFinding,
   AnalysisResult,
@@ -53,6 +54,35 @@ function slimEdge(edge: WFEdge & { flowId: string }) {
   };
 }
 
+/**
+ * Loops are never stored — `findLoops` re-derives them from the current topology, same as
+ * `getFlowExits` does for sub-flow exits. This adds names (the model has to write about
+ * these in prose) and an `id` so the server's cache-key canonicaliser can sort the top-level
+ * array by it, the same mechanism that already makes `flows`/`nodes`/`edges` order-insensitive
+ * (see `canonical()` in server/cache.ts) — without it, loop order would drift with whatever
+ * order `doc.nodes`/`doc.edges` happen to be in and the cache would miss on every run.
+ */
+function serializeLoop(doc: WorkflowDoc, loop: Loop) {
+  const nameOf = (id: string) => doc.nodes.find((n) => n.id === id)?.data.name ?? id;
+  return {
+    id: loop.id,
+    flowId: loop.flowId,
+    nodeIds: loop.nodeIds,
+    nodeNames: loop.nodeIds.map(nameOf),
+    guarded: loop.guarded,
+    guardedByNodeIds: loop.guardedBy,
+    backEdges: loop.backEdgeIds.map((edgeId) => {
+      const e = doc.edges.find((edge) => edge.id === edgeId)!;
+      return {
+        from: e.source,
+        to: e.target,
+        branch: e.data?.branch,
+        retryRatePct: e.data?.retryRatePct,
+      };
+    }),
+  };
+}
+
 export interface Cacheable<T> {
   result: T;
   /** True when the server served this from `analysis_cache` rather than calling the model. */
@@ -97,6 +127,7 @@ export async function analyzeTasks(
       flows: doc.flows.filter((f) => flowIds.includes(f.id)),
       nodes: doc.nodes.filter((n) => flowIds.includes(n.flowId)).map(slimNode),
       edges: doc.edges.filter((e) => flowIds.includes(e.flowId)).map(slimEdge),
+      loops: flowIds.flatMap((id) => findLoops(doc, id)).map((l) => serializeLoop(doc, l)),
       frequencies: doc.frequencies,
       personas: doc.personas,
       departments: doc.departments,
@@ -125,6 +156,7 @@ export async function analyzeSubFlow(
       flow,
       nodes: nodes.map(slimNode),
       edges: doc.edges.filter((e) => e.flowId === flow.id).map(slimEdge),
+      loops: findLoops(doc, flow.id).map((l) => serializeLoop(doc, l)),
       parentContext: {
         parentFlowName: doc.flows.find((f) => f.id === flow.parentFlowId)?.name ?? null,
         // getFlowExits sorts by canvas y with an id tie-break, so this matches the order the
@@ -158,6 +190,7 @@ export async function analyzeStrategic(
       flows: doc.flows.filter((f) => flowIds.includes(f.id)),
       nodes: doc.nodes.filter((n) => flowIds.includes(n.flowId)).map(slimNode),
       edges: doc.edges.filter((e) => flowIds.includes(e.flowId)).map(slimEdge),
+      loops: flowIds.flatMap((id) => findLoops(doc, id)).map((l) => serializeLoop(doc, l)),
       // Sent to the model, but excluded from the cache key server-side — see EXCLUDE_FROM_KEY.
       taskFindings: taskResult?.findings ?? [],
       subFlowAnalyses,

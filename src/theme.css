@@ -17,6 +17,7 @@
   /* Semantic tokens for status indicators (replaces hardcoded #22c55e / #e63946) */
   --color-success:    var(--color-sage);
   --color-error:      var(--color-plum);
+  --color-warning:    var(--color-mustard);
 
   /* Fonts — Work Sans for both heading and body */
   --font-heading: var(--font-display);  /* 'Work Sans' */

@@ -27,6 +27,13 @@ The workflow JSON uses the following node types:
 
 When reading edges from a decision node, use \`data.branch\` (or \`label\`) to understand which path is taken under which condition. When reading edges from a flow node, use \`data.exit\` the same way — it names the sub-flow outcome that leads down that path.
 
+## Feedback loops
+The graph is not always acyclic. A **feedback loop** happens when a decision sends a run back through a segment it has already been through — chase a payment, re-check something, try again. The payload includes a pre-computed \`loops\` array; use it rather than trying to re-derive cycles from \`edges\` yourself:
+- \`loops[].nodeIds\` / \`nodeNames\` — the nodes the loop repeats.
+- \`loops[].guarded\` — \`true\` when at least one decision node in the loop can exit it. \`false\` means the loop has no decision node able to leave it, so it never terminates — treat this as a **modelling error to call out explicitly**, not a normal automation target. Recommend adding the missing decision or exit condition rather than proposing automation for a loop that never ends.
+- \`loops[].guardedByNodeIds\` — the decision node(s) that can break out of the loop.
+- \`loops[].backEdges\` — the edge(s) that close the loop, each with \`branch\` (when it leaves a decision) and \`retryRatePct\` (0-100, the share of runs that take it back around) when the user has supplied one.
+
 ## Org-wide registries
 The payload includes document-level lists you must join against:
 - **frequencies** — \`{ id, label, occurrencesPerMonth }\`. A task's \`frequencyId\` points here; \`occurrencesPerMonth\` is how many times that task runs per month across the whole org.
@@ -36,6 +43,7 @@ The payload includes document-level lists you must join against:
 ## Impact maths
 - \`estMonthlyTimeSaved\` (minutes/month) = \`estTimeSavedPerRun\` × the \`occurrencesPerMonth\` of the task's frequency category. Omit if either input is unknown.
 - A persona's monthly capacity is \`workerCount × avgWeeklyHours × 4.33\` hours.
+- **A task inside a guarded feedback loop runs more than once per workflow run** whenever its loop is taken back around. With a retry rate \`r\` (0-1, i.e. \`retryRatePct ÷ 100\`) on the loop's back edge, the expected number of passes through the loop is \`1 / (1 - r)\` — cap this at 5 passes, and treat \`r ≥ 0.9\` as unreliable data worth flagging rather than compounding blindly. Multiply a looped task's \`estTimeSavedPerRun\` by that expected-passes figure before scaling to \`estMonthlyTimeSaved\`. When a loop has no \`retryRatePct\`, reason about it qualitatively in the \`rationale\` instead of inventing a rate.
 - Never claim a saving larger than the human time actually spent on the work you are replacing.
 
 ## Claude & Anthropic product catalogue (choose the best fit)

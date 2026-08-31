@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import type { NodeChange, EdgeChange, Connection } from '@xyflow/react';
-import type { WFNode, WFEdge, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData, FrequencyCategory, Persona, Department } from '@/types';
+import type { WFNode, WFEdge, WFEdgeData, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData, FrequencyCategory, Persona, Department } from '@/types';
 import { seedDoc } from '@/lib/seed';
 import { normalizeDoc } from '@/lib/persistence';
 
@@ -15,6 +15,7 @@ interface WorkflowState {
   currentFlowId: string;
   breadcrumbs: BreadcrumbEntry[];
   selectedNodeId: string | null;
+  selectedEdgeId: string | null;
 
   // react-flow handlers
   onNodesChange: (changes: NodeChange[]) => void;
@@ -26,6 +27,7 @@ interface WorkflowState {
   currentEdges: () => (WFEdge & { flowId: string })[];
   currentFlow: () => Flow | undefined;
   selectedNode: () => (WFNode & { flowId: string }) | undefined;
+  selectedEdge: () => (WFEdge & { flowId: string }) | undefined;
   frequencies: () => FrequencyCategory[];
   personas: () => Persona[];
   departments: () => Department[];
@@ -33,6 +35,7 @@ interface WorkflowState {
   // navigation
   enterFlow: (childFlowId: string) => void;
   goToBreadcrumb: (flowId: string) => void;
+  goToFlow: (flowId: string) => void;
 
   // CRUD
   addTask: (position: { x: number; y: number }) => void;
@@ -43,6 +46,9 @@ interface WorkflowState {
   updateNodeData: (nodeId: string, data: Partial<WFNodeData>) => void;
   deleteNode: (nodeId: string) => void;
   setSelectedNode: (nodeId: string | null) => void;
+  updateEdgeData: (edgeId: string, data: Partial<WFEdgeData>) => void;
+  deleteEdge: (edgeId: string) => void;
+  setSelectedEdge: (edgeId: string | null) => void;
 
   // org-wide assumptions
   addFrequency: () => string;
@@ -73,6 +79,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   currentFlowId: seedDoc.rootFlowId,
   breadcrumbs: [{ flowId: seedDoc.rootFlowId, name: seedDoc.flows.find(f => f.id === seedDoc.rootFlowId)?.name ?? 'Root' }],
   selectedNodeId: null,
+  selectedEdgeId: null,
 
   onNodesChange: (changes) => {
     set((state) => {
@@ -133,6 +140,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (!selectedNodeId) return undefined;
     return doc.nodes.find(n => n.id === selectedNodeId);
   },
+  selectedEdge: () => {
+    const { selectedEdgeId, doc } = get();
+    if (!selectedEdgeId) return undefined;
+    return doc.edges.find(e => e.id === selectedEdgeId);
+  },
   frequencies: () => get().doc.frequencies,
   personas: () => get().doc.personas,
   departments: () => get().doc.departments,
@@ -145,6 +157,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       currentFlowId: childFlowId,
       breadcrumbs: [...breadcrumbs, { flowId: childFlowId, name: flow.name }],
       selectedNodeId: null,
+      selectedEdgeId: null,
     });
   },
 
@@ -156,7 +169,31 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         currentFlowId: flowId,
         breadcrumbs: state.breadcrumbs.slice(0, idx + 1),
         selectedNodeId: null,
+        selectedEdgeId: null,
       };
+    });
+  },
+
+  // Jumps to any flow — including one not on the current breadcrumb path, e.g. a sub-flow
+  // reached from the toolbar's loop-issue chip. Walks `parentFlowId` up to the root and
+  // rebuilds the breadcrumb trail from scratch; the `seen` guard mirrors `depthOf` in
+  // analysisRunner.ts, defensive against a malformed parentFlowId cycle.
+  goToFlow: (flowId) => {
+    const { doc } = get();
+    const chain: BreadcrumbEntry[] = [];
+    const seen = new Set<string>();
+    let current = doc.flows.find(f => f.id === flowId);
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id);
+      chain.unshift({ flowId: current.id, name: current.name });
+      current = current.parentFlowId ? doc.flows.find(f => f.id === current!.parentFlowId) : undefined;
+    }
+    if (chain.length === 0) return;
+    set({
+      currentFlowId: flowId,
+      breadcrumbs: chain,
+      selectedNodeId: null,
+      selectedEdgeId: null,
     });
   },
 
@@ -304,7 +341,27 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
   },
 
-  setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId }),
+  setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId, selectedEdgeId: null }),
+
+  updateEdgeData: (edgeId, data) => {
+    set((state) => ({
+      doc: {
+        ...state.doc,
+        edges: state.doc.edges.map(e =>
+          e.id === edgeId ? { ...e, data: { ...e.data, ...data } as WFEdgeData } : e
+        ),
+      },
+    }));
+  },
+
+  deleteEdge: (edgeId) => {
+    set((state) => ({
+      doc: { ...state.doc, edges: state.doc.edges.filter(e => e.id !== edgeId) },
+      selectedEdgeId: null,
+    }));
+  },
+
+  setSelectedEdge: (edgeId) => set({ selectedEdgeId: edgeId, selectedNodeId: null }),
 
   addFrequency: () => {
     const id = `freq-${uid()}`;

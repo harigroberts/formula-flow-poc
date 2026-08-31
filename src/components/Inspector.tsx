@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useWorkflowStore } from '@/store/workflowStore';
 import { getFlowExits } from '@/lib/exits';
+import { findLoops, findLoopByBackEdge } from '@/lib/cycles';
 import type { TaskData, FlowRefData, DecisionData, TerminalData } from '@/types';
 import styles from './Inspector.module.css';
 
@@ -54,6 +55,10 @@ export default function Inspector() {
     updateNodeData,
     deleteNode,
     setSelectedNode,
+    selectedEdge,
+    setSelectedEdge,
+    updateEdgeData,
+    deleteEdge,
     frequencies,
     personas,
     departments,
@@ -67,8 +72,10 @@ export default function Inspector() {
   const [collapsed, setCollapsed] = useState(false);
 
   const node = selectedNode();
+  const edge = selectedEdge();
   const flow = currentFlow();
   const departmentList = departments();
+  const doc = useWorkflowStore.getState().doc;
 
   const handleRootDepartmentChange = (value: string) => {
     if (value === NEW_OPTION) {
@@ -98,6 +105,141 @@ export default function Inspector() {
   }
 
   const isRoot = flow?.id === useWorkflowStore.getState().doc.rootFlowId;
+
+  // A selected edge (only reachable when no node is selected — the store keeps the two
+  // exclusive). Feedback loops are never stored; `findLoops` re-derives them from the
+  // current topology the same way `getFlowExits` derives sub-flow exits.
+  if (!node && edge) {
+    const sourceNode = doc.nodes.find((n) => n.id === edge.source);
+    const targetNode = doc.nodes.find((n) => n.id === edge.target);
+    const sourceName = sourceNode?.data.name ?? edge.source;
+    const targetName = targetNode?.data.name ?? edge.target;
+    const branchOrExit = edge.data?.branch ? (edge.data.branch === 'yes' ? 'Yes' : 'No') : edge.data?.exit;
+
+    const loops = findLoops(doc, edge.flowId);
+    const loop = findLoopByBackEdge(loops, edge.id);
+
+    const loopNodeNames = loop
+      ? loop.nodeIds.map((id) => doc.nodes.find((n) => n.id === id)?.data.name ?? id)
+      : [];
+
+    // Scope strictly to the decision this specific back edge leaves from — a loop can be
+    // guarded by more than one decision, but only the one this edge actually originates
+    // from is relevant to it. No fallback to the full guardedBy set: when the edge's source
+    // isn't itself a guarding decision (the back edge a DFS finds isn't always the one
+    // immediately after a decision — it can be a plain task further round the cycle),
+    // there's no single decision this edge can honestly be attributed to, so the field is
+    // omitted below rather than showing an unrelated decision's exit.
+    //
+    // Also exclude any sibling edge sharing this edge's own sourceHandle: a decision's
+    // handle can carry more than one edge (e.g. an existing "No" to a terminal alongside a
+    // new "No" drawn back into the loop), and a sibling on the *same* branch as the retry
+    // itself isn't a different way out — showing it next to a Connection line that already
+    // says "· No" reads as contradicting itself.
+    const exitDescriptions =
+      loop && loop.guardedBy.includes(edge.source)
+        ? doc.edges
+            .filter(
+              (e) =>
+                e.source === edge.source &&
+                !loop.nodeIds.includes(e.target) &&
+                e.sourceHandle !== edge.sourceHandle,
+            )
+            .map((e) => {
+              const decisionName = doc.nodes.find((n) => n.id === edge.source)?.data.name ?? 'Decision';
+              const branch = e.data?.branch === 'yes' ? 'Yes' : e.data?.branch === 'no' ? 'No' : undefined;
+              return branch ? `${decisionName} → ${branch}` : decisionName;
+            })
+        : [];
+
+    const handleDeleteEdge = () => {
+      deleteEdge(edge.id);
+      setSelectedEdge(null);
+    };
+
+    return (
+      <aside className={styles.panel}>
+        <div className={styles.header}>
+          <button
+            className={styles.collapseBtn}
+            onClick={() => setCollapsed(true)}
+            title="Collapse inspector"
+          >
+            ›
+          </button>
+          <h2 className={styles.heading}>{loop ? 'Feedback loop' : 'Connection'}</h2>
+          <button className="btn-ghost" onClick={handleDeleteEdge} title="Delete connection">
+            ✕ Delete
+          </button>
+        </div>
+
+        <div className={styles.fields}>
+          <Field label="Connection">
+            <div className={styles.exitList}>
+              <div className={styles.exitItem}>
+                {sourceName} → {targetName}
+                {branchOrExit && (
+                  <>
+                    {' '}
+                    · <strong>{branchOrExit}</strong>
+                  </>
+                )}
+              </div>
+            </div>
+          </Field>
+
+          {loop && (
+            <>
+              <Field label="Nodes in this loop">
+                <div className={styles.exitList}>
+                  {loopNodeNames.map((name, i) => (
+                    <div key={i} className={styles.exitItem}>
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              </Field>
+
+              {loop.guarded ? (
+                exitDescriptions.length > 0 && (
+                  <Field label="Exits when">
+                    <div className={styles.exitList}>
+                      {exitDescriptions.map((d, i) => (
+                        <div key={i} className={styles.exitItem}>
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+                  </Field>
+                )
+              ) : (
+                <p className={styles.loopWarning}>
+                  ⚠ No decision node in this loop — it will never terminate.
+                </p>
+              )}
+
+              <Field label="Taken in % of runs">
+                <input
+                  className={styles.input}
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={edge.data?.retryRatePct ?? ''}
+                  onChange={(e) => {
+                    const raw = e.target.value === '' ? undefined : Number(e.target.value);
+                    const clamped =
+                      raw === undefined || !Number.isFinite(raw) ? undefined : Math.min(100, Math.max(0, raw));
+                    updateEdgeData(edge.id, { retryRatePct: clamped });
+                  }}
+                  placeholder="e.g. 20"
+                />
+              </Field>
+            </>
+          )}
+        </div>
+      </aside>
+    );
+  }
 
   // When nothing is selected, show editable properties for the current flow.
   if (!node) {

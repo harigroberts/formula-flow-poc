@@ -84,6 +84,24 @@
   50% { opacity: 0.35; }
 }
 
+.issueChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-clay);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.issueChip:hover {
+  background: color-mix(in srgb, var(--color-warning) 26%, transparent);
+}
+
 .error {
   position: absolute;
   bottom: -28px;

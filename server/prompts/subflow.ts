@@ -28,6 +28,7 @@ You are not being asked to re-do the task-level analysis, and you must not resta
 - **Collapsing exits** — a sub-flow with several \`end\` nodes may be able to resolve failure paths automatically rather than exiting to the parent.
 - **Batching** — work that is done per run could be done once per period across many runs.
 - **Reordering or parallelising** — the sequence itself may be the constraint, not any single task.
+- **Breaking a retry loop** — validating earlier, moving a check upstream, or auto-correcting so a feedback loop (see \`loops\` in the payload) is rarely entered at all. Getting it right the first time is often worth more than automating any single task inside the loop.
 
 ### When to say there is no improvement — this is expected and important
 Set \`improvesOnTaskLevel: false\` whenever the honest answer is that the task-by-task plan is already right. This is a **common and correct** outcome, not a failure. Typical cases:

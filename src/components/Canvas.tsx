@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  MarkerType,
   useNodesInitialized,
   useReactFlow,
   type NodeTypes,
+  type EdgeTypes,
   type NodeMouseHandler,
 } from '@xyflow/react';
 import { useWorkflowStore } from '@/store/workflowStore';
@@ -15,6 +17,8 @@ import FlowNode from './nodes/FlowNode';
 import DecisionNode from './nodes/DecisionNode';
 import StartNode from './nodes/StartNode';
 import EndNode from './nodes/EndNode';
+import LoopEdge from './edges/LoopEdge';
+import { findLoops, findLoopByBackEdge } from '@/lib/cycles';
 import type { WFNodeData, FlowRefData } from '@/types';
 import styles from './Canvas.module.css';
 
@@ -30,8 +34,20 @@ const nodeTypes: NodeTypes = {
   end: EndNode,
 };
 
+const edgeTypes: EdgeTypes = {
+  loopback: LoopEdge,
+};
+
+// Literal hex rather than var(--color-mid-gray): React Flow renders markers into a <defs>
+// block that isn't reliably inside the themed subtree, so a CSS custom property may not
+// resolve there. Matches --color-mid-gray → --fg-subtle (see theme.css).
+const DEFAULT_EDGE_OPTIONS = {
+  markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#9A7E66' },
+};
+
 export default function Canvas() {
   const {
+    doc,
     currentFlowId,
     currentNodes,
     currentEdges,
@@ -40,6 +56,7 @@ export default function Canvas() {
     onConnect,
     enterFlow,
     setSelectedNode,
+    setSelectedEdge,
     addTask,
     addFlow,
     addDecision,
@@ -48,7 +65,25 @@ export default function Canvas() {
   } = useWorkflowStore();
 
   const nodes = currentNodes();
-  const edges = currentEdges();
+  const edgesRaw = currentEdges();
+
+  // Loop detection (Tarjan's SCC) only cares about node types and edge source/target, not
+  // about `doc` reference identity — which changes on every store write, including ones
+  // that touch a totally different flow (e.g. typing in the Inspector). Keying the memo on
+  // this topology string instead of on `doc` keeps findLoops from re-running on every
+  // keystroke; see the FlowNode `handleKey` precedent for the same technique.
+  const topoKey =
+    nodes.map((n) => `${n.id}:${n.type}`).join('|') +
+    '#' +
+    edgesRaw.map((e) => `${e.id}:${e.source}>${e.target}`).join('|');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loops = useMemo(() => findLoops(doc, currentFlowId), [topoKey, currentFlowId]);
+
+  const edges = edgesRaw.map((e) => {
+    const loop = findLoopByBackEdge(loops, e.id);
+    if (!loop) return e;
+    return { ...e, type: 'loopback', data: { ...e.data, loop: { guarded: loop.guarded } } };
+  });
 
   // Fit the viewport once per canvas: on first paint and whenever we drill into or back out of
   // a flow. The `fitView` prop alone runs before the nodes have been measured, which leaves the
@@ -85,6 +120,13 @@ export default function Canvas() {
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
   }, [setSelectedNode]);
+
+  const onEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: { id: string }) => {
+      setSelectedEdge(edge.id);
+    },
+    [setSelectedEdge],
+  );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -124,10 +166,13 @@ export default function Canvas() {
         onConnect={onConnect}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         onDragOver={onDragOver}
         onDrop={onDrop}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
         fitView
         fitViewOptions={FIT_VIEW_OPTIONS}
         minZoom={0.2}

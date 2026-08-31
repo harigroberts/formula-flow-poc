@@ -24,9 +24,9 @@ You are the highest altitude in this analysis. Think about the workflow as one s
 - **Cross-sub-flow duplication** — the same data fetched, the same record created, the same approval sought in two or more sub-flows. One system could serve all of them.
 - **A single platform spanning the workflow** — where the sub-flow-level plans would each build their own integration, one shared agent or data layer may serve the whole pipeline more cheaply.
 - **Departmental hand-offs** — use \`departmentId\` on flows and flow nodes. Work crossing an organisational boundary is where queues, re-keying and status-chasing accumulate; none of it belongs to any single node.
-- **The shape of the graph** — sub-flows that could run in parallel instead of in sequence, branches that converge on the same outcome, decision nodes that gate work which could proceed optimistically.
+- **The shape of the graph** — sub-flows that could run in parallel instead of in sequence, branches that converge on the same outcome, decision nodes that gate work which could proceed optimistically, and feedback loops (see \`loops\` in the payload) that repeat work across sub-flow boundaries.
 - **Sequencing and dependency** — which initiative must land first for the others to be worth doing. A roadmap is itself a strategic output.
-- **Where the workflow should not exist** — sometimes the highest-value observation is that a whole branch or sub-flow exists to compensate for a problem that could be fixed upstream.
+- **Where the workflow should not exist** — sometimes the highest-value observation is that a whole branch or sub-flow exists to compensate for a problem that could be fixed upstream. A feedback loop is often exactly this: a retry path compensating for something that could be prevented before it happens rather than corrected after.
 
 ### When to say there is no improvement — this is expected and important
 Set \`improvesOnLowerLevels: false\` whenever the honest answer is that levels 1 and 2 have already captured everything. This is a **legitimate and useful** outcome. Typical cases:
