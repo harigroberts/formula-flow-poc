@@ -1,6 +1,8 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useContext } from 'react';
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, useStoreApi, type EdgeProps } from '@xyflow/react';
 import { useWorkflowStore } from '@/store/workflowStore';
+import { routeAroundNodes } from '@/lib/edgeRouting';
+import { ObstaclesContext } from './obstacles';
 import type { WFEdgeData } from '@/types';
 import styles from './LoopEdge.module.css';
 
@@ -25,6 +27,7 @@ function LoopEdge({
 }: EdgeProps) {
   const d = data as LoopEdgeData | undefined;
   const guarded = d?.loop?.guarded ?? true;
+  const obstacleMap = useContext(ObstaclesContext);
 
   // The pill sits in React Flow's edge-label-renderer portal, a separate DOM subtree from the
   // edge's own <g> — so clicking it never reaches React Flow's built-in edge click handling.
@@ -55,19 +58,37 @@ function LoopEdge({
     labelX = midX;
     labelY = midY + 4;
   } else {
-    const [p, lx, ly] = getSmoothStepPath({
-      sourceX,
-      sourceY,
-      sourcePosition,
-      targetX,
-      targetY,
-      targetPosition,
-      borderRadius: 12,
-      offset: 28,
-    });
-    path = p;
-    labelX = lx;
-    labelY = ly;
+    const route = obstacleMap
+      ? routeAroundNodes({
+          sourceX,
+          sourceY,
+          sourcePosition,
+          targetX,
+          targetY,
+          targetPosition,
+          obstacles: [...obstacleMap.values()],
+        })
+      : null;
+
+    if (route) {
+      path = route.path;
+      labelX = route.labelX;
+      labelY = route.labelY;
+    } else {
+      const [p, lx, ly] = getSmoothStepPath({
+        sourceX,
+        sourceY,
+        sourcePosition,
+        targetX,
+        targetY,
+        targetPosition,
+        borderRadius: 12,
+        offset: 28,
+      });
+      path = p;
+      labelX = lx;
+      labelY = ly;
+    }
   }
 
   const color = guarded ? 'var(--color-mustard)' : 'var(--color-error)';

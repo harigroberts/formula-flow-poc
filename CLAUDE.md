@@ -160,6 +160,7 @@ src/
     seed.ts             — seed WorkflowDoc (Customer Onboarding example)
     persistence.ts      — exportJson, exportYaml, importFile, normalizeDoc
     cycles.ts           — findLoops / findAllLoops: derives feedback loops (Tarjan's SCC) from the graph
+    edgeRouting.ts       — routeAroundNodes: obstacle-aware edge path (grid A* + smoothing), DOM-free/pure
     api.ts              — analyzeTasks / analyzeSubFlow / analyzeStrategic → the three /api/analyze* endpoints
     analysisRunner.ts   — chains the three analysis levels, feeding each into the next; emits progress per stage
     useAnalysis.ts      — hook owning the multi-level run (result, stage, error); kept out of the store on purpose
@@ -184,6 +185,9 @@ src/
       TerminalNode.module.css — shared styles for Start and End nodes
     edges/
       LoopEdge.tsx       — dashed, routed "loopback" edge type for feedback-loop back edges
+      SmartEdge.tsx      — default "smart" edge type; plain bezier unless it would cross a node,
+                           then routes around it via lib/edgeRouting.ts
+      obstacles.ts       — ObstaclesContext: node-id → rect map Canvas provides for edge routing
 server/
   index.ts              — Express app; POST /api/analyze{,/subflow,/strategic}, GET /api/health
   analyze.ts            — the three Anthropic SDK calls, prompt caching, JSON parsing, LEVELS descriptor
@@ -206,10 +210,32 @@ server/
   from the store via `useShallow` over a flat string array so React Flow doesn't see a new snapshot each render.
 - **Feedback loops** — derived from topology via `findLoops()`/`findAllLoops()` in `lib/cycles.ts`, never
   stored as a flag on a node or edge; the only new stored field is `WFEdgeData.retryRatePct` on the edge
-  that closes the loop. `Canvas.tsx` decorates matching edges with the `loopback` type at render time only —
-  don't move that decoration into the store, it must not reach `doc.edges`, export, sync, or the analysis
-  payload (which carries its own pre-computed, named `loops` array instead — see `serializeLoop()` in
-  `lib/api.ts`).
+  that closes the loop. `Canvas.tsx` decorates matching edges with the `loopback` type (and every other
+  edge with `smart`, see below) at render time only — don't move that decoration into the store, it must
+  not reach `doc.edges`, export, sync, or the analysis payload (which carries its own pre-computed, named
+  `loops` array instead — see `serializeLoop()` in `lib/api.ts`).
+- **Edge routing** — every non-loop edge renders as `SmartEdge` (`components/edges/SmartEdge.tsx`), the
+  `loopback` back-edge as `LoopEdge`; both call `routeAroundNodes()` (`lib/edgeRouting.ts`) and fall back
+  to their plain bezier/smoothstep path when it returns `null` (nothing to avoid, or no route found).
+  Obstacle rects are derived from node geometry at render time in `Canvas.tsx` (`ObstaclesContext`,
+  `components/edges/obstacles.ts`) — like the loop decoration, this must never reach `doc.nodes`/`doc.edges`,
+  export, sync, or the analysis payload. Routing stays live through a drag (recomputed every frame,
+  same as node position) rather than dropping to the plain path and re-routing on drop — the
+  obstacle map was already recomputing every frame regardless, since the dragged node's position
+  is part of its cache key, so disabling routing bought no savings, only a jarring style flicker.
+  `routeAroundNodes()`'s A* is also direction-constrained at both ends — it must leave the source
+  moving in the handle's outward direction and arrive at the target moving in its inward direction
+  — because the cell path is stitched to two fixed straight stub segments whose directions are set
+  by the handle position; an unconstrained search could arrive from the wrong side and force that
+  fixed segment to double back, which read as a visible overshoot/loop right at the node. The grid
+  itself is scoped to a `LOCAL_WINDOW` around the source/target/stub points, not sized against
+  every node in the flow — on a wide canvas an unscoped grid gets coarse (cells per axis is
+  capped), and the coarser the grid the bigger the gap between a cell center and the exact stub
+  point it's snapped to, which read as the same kind of loop. The snap itself propagates through
+  the *whole* straight run of raw cell centers adjacent to each stub, not just the immediate
+  neighbour — a raw grid step only ever changes one axis, so the run already shares the other one;
+  fixing up just one point left a stale, un-snapped cell center further back that string-pull
+  could no longer merge across.
 - **Org-wide assumptions** — frequency counts and personas live on the doc and are edited in the Assumptions slide-over; tasks reference them by id (`frequencyId` / `personaId`), never by free text.
 - **Models** — two, both declared at the top of `server/analyze.ts`: `TASK_MODEL` (`claude-haiku-4-5`) for the
   high-volume per-node pass, `INTEGRATION_MODEL` (`claude-opus-5`) for the two integrative passes, which run with

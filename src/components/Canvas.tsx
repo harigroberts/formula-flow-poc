@@ -18,6 +18,9 @@ import DecisionNode from './nodes/DecisionNode';
 import StartNode from './nodes/StartNode';
 import EndNode from './nodes/EndNode';
 import LoopEdge from './edges/LoopEdge';
+import SmartEdge from './edges/SmartEdge';
+import { ObstaclesContext } from './edges/obstacles';
+import type { Rect } from '@/lib/edgeRouting';
 import { findLoops, findLoopByBackEdge } from '@/lib/cycles';
 import type { WFNodeData, FlowRefData } from '@/types';
 import styles from './Canvas.module.css';
@@ -36,6 +39,7 @@ const nodeTypes: NodeTypes = {
 
 const edgeTypes: EdgeTypes = {
   loopback: LoopEdge,
+  smart: SmartEdge,
 };
 
 // Literal hex rather than var(--color-mid-gray): React Flow renders markers into a <defs>
@@ -81,15 +85,38 @@ export default function Canvas() {
 
   const edges = edgesRaw.map((e) => {
     const loop = findLoopByBackEdge(loops, e.id);
-    if (!loop) return e;
+    if (!loop) return { ...e, type: 'smart' };
     return { ...e, type: 'loopback', data: { ...e.data, loop: { guarded: loop.guarded } } };
   });
+
+  // Obstacle rects for edge routing, keyed by node id so an edge can exclude its own
+  // source/target. Derived from measured node size, which React Flow writes back onto
+  // `doc.nodes` via onNodesChange('dimensions') — see the geometry-key precedent in the loop
+  // memo above for why this is a string key rather than a `doc` dependency. Recomputed on every
+  // position change, including mid-drag: `geometryKey` already changes on every drag frame (the
+  // dragged node's position is part of it), so gating this on `dragging` bought no savings — it
+  // only made the memo return `null` and drop every edge back to its plain, unrouted path for
+  // the duration of the drag, which read as a jarring style change rather than a live update.
+  const nodesInitialized = useNodesInitialized();
+  const geometryKey = nodes
+    .map((n) => `${n.id}:${Math.round(n.position.x)}:${Math.round(n.position.y)}:${n.measured?.width ?? 0}:${n.measured?.height ?? 0}`)
+    .join('|');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const obstacles = useMemo<Map<string, Rect> | null>(() => {
+    if (!nodesInitialized) return null;
+    const map = new Map<string, Rect>();
+    for (const n of nodes) {
+      if (!n.measured?.width || !n.measured?.height) continue;
+      map.set(n.id, { x: n.position.x, y: n.position.y, width: n.measured.width, height: n.measured.height });
+    }
+    return map;
+  }, [geometryKey, nodesInitialized]);
 
   // Fit the viewport once per canvas: on first paint and whenever we drill into or back out of
   // a flow. The `fitView` prop alone runs before the nodes have been measured, which leaves the
   // viewport at its default zoom of 1 — on a wide flow that reads as "far too zoomed in".
-  // `useNodesInitialized` waits until every node has real dimensions to size the fit against.
-  const nodesInitialized = useNodesInitialized();
+  // `useNodesInitialized` (above) waits until every node has real dimensions to size the fit
+  // against — reused here rather than declared twice.
   const { fitView } = useReactFlow();
   const fittedFor = useRef<string | null>(null);
 
@@ -158,35 +185,37 @@ export default function Canvas() {
 
   return (
     <div className={styles.canvas}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeDoubleClick={onNodeDoubleClick}
-        onNodeClick={onNodeClick}
-        onEdgeClick={onEdgeClick}
-        onPaneClick={onPaneClick}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
-        fitView
-        fitViewOptions={FIT_VIEW_OPTIONS}
-        minZoom={0.2}
-        deleteKeyCode="Delete"
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background color="var(--color-light-gray)" gap={20} size={1} />
-        <Controls />
-        <MiniMap
-          nodeStrokeColor={(n) => n.type === 'flow' ? 'var(--color-blue)' : 'var(--color-orange)'}
-          nodeColor={(n) => n.type === 'flow' ? 'rgba(106,155,204,0.2)' : 'rgba(217,119,87,0.15)'}
-          maskColor="rgba(250,249,245,0.85)"
-        />
-      </ReactFlow>
+      <ObstaclesContext.Provider value={obstacles}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeDoubleClick={onNodeDoubleClick}
+          onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
+          onPaneClick={onPaneClick}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+          fitView
+          fitViewOptions={FIT_VIEW_OPTIONS}
+          minZoom={0.2}
+          deleteKeyCode="Delete"
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background color="var(--color-light-gray)" gap={20} size={1} />
+          <Controls />
+          <MiniMap
+            nodeStrokeColor={(n) => n.type === 'flow' ? 'var(--color-blue)' : 'var(--color-orange)'}
+            nodeColor={(n) => n.type === 'flow' ? 'rgba(106,155,204,0.2)' : 'rgba(217,119,87,0.15)'}
+            maskColor="rgba(250,249,245,0.85)"
+          />
+        </ReactFlow>
+      </ObstaclesContext.Provider>
     </div>
   );
 }
