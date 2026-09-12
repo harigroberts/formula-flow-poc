@@ -93,8 +93,11 @@ WFEdge {
 }
 ```
 
-With 0 or 1 exits the flow node renders exactly as before (one centred handle, no footer). `normalizeDoc()`
-backfills `sourceHandle`/`data.exit` on legacy edges and clears handles that no longer resolve.
+Each exit gets its own labelled row in the flow node's footer, set off by a divider — except when
+there's nothing worth labelling: a child flow with no `end` node at all, or exactly one whose name
+is still the generic default ("Exit"), falls back to a single plain handle with no divider.
+`normalizeDoc()` backfills `sourceHandle`/`data.exit` on legacy edges and clears handles that no
+longer resolve.
 
 **Feedback loops** — the graph is not required to be a DAG. A loop happens when a decision's "No"
 branch (or any edge) points back at a node upstream of it — e.g. a payment-chase decision sending

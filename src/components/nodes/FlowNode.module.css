@@ -7,7 +7,6 @@
   max-width: 240px;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  text-align: center;
   transition:
     box-shadow   var(--dur-fast) var(--ease-out),
     background   var(--dur-fast) var(--ease-out),
@@ -27,9 +26,17 @@
   transform: translateY(-1px);
 }
 
-.icon {
-  font-size: 20px;
+.header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   margin-bottom: 4px;
+}
+
+.icon {
+  font-size: 15px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .name {
@@ -37,7 +44,9 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--color-blue);
-  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .desc {
@@ -49,28 +58,31 @@
   text-overflow: ellipsis;
 }
 
-.hint {
-  font-size: 10px;
-  color: var(--color-blue);
-  opacity: 0.7;
-  font-style: italic;
+/* Footer bar — the "grey bar" divider that sets the named exit rows off from the rest of the
+   card. Only rendered when there's an actual exit name worth showing (see `showExitLabels` in
+   FlowNode.tsx); a single generic "Exit" or no named exits at all skips this entirely in favour
+   of a plain handle. The negative side margins cancel `.node`'s horizontal padding so the
+   divider and exit rows reach the card border; no right padding of its own, since `.exits`
+   needs to reach the true right border so its handles land flush on it, same as every other
+   node type — React Flow anchors a right-side handle with `right: 0; translate(50%, -50%)`
+   relative to the nearest positioned ancestor's edge, not wherever padding puts the content. */
+.footer {
+  margin: 10px -16px -12px;
+  padding: 10px 0 10px 16px;
+  border-top: 1px solid var(--color-light-gray);
 }
 
-/* Named exits — one row per `end` node in the child flow. The negative side margins cancel
-   `.node`'s horizontal padding so each row reaches the card border; React Flow anchors a
-   right-side handle with `right: 0; translate(50%, -50%)`, so that is where it lands. */
 .exits {
-  margin: 8px -16px -4px;
-  padding-top: 6px;
-  border-top: 1px solid var(--color-light-gray);
   text-align: right;
 }
 
 /* `position: relative` makes each row the containing block for its own handle, so the handle
-   stays vertically centred on its label as rows reflow — no per-handle offset maths. */
+   stays vertically centred on its label as rows reflow — no per-handle offset maths. The
+   right padding keeps the label text clear of the handle dot anchored at the row's edge,
+   which otherwise sits flush against the last character. */
 .exitRow {
   position: relative;
-  padding: 3px 16px;
+  padding: 3px 14px 3px 0;
 }
 
 .exitLabel {

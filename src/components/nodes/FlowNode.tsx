@@ -31,21 +31,29 @@ function FlowNode({ id, data, selected }: NodeProps) {
     updateNodeInternals(id);
   }, [id, handleKey, updateNodeInternals]);
 
+  // A lone exit still named the generic default carries no information worth a labelled row
+  // or the divider that sets it off — just a plain connector, same as a flow node with no
+  // named exits at all.
+  const showExitLabels = exits.length > 1 || (exits.length === 1 && exits[0].label.trim().toLowerCase() !== 'exit');
+
   return (
     <div className={`${styles.node} ${selected ? styles.selected : ''}`}>
       <Handle type="target" position={Position.Left} />
-      <div className={styles.icon}>⚡</div>
-      <div className={styles.name}>{d.name || 'Untitled Flow'}</div>
+      <div className={styles.header}>
+        <span className={styles.icon}>⚡</span>
+        <span className={styles.name}>{d.name || 'Untitled Flow'}</span>
+      </div>
       {d.description && <div className={styles.desc}>{d.description}</div>}
-      <div className={styles.hint}>Double-click to open</div>
-      {exits.length > 1 ? (
-        <div className={styles.exits}>
-          {exits.map((ex) => (
-            <div key={ex.id} className={styles.exitRow}>
-              <span className={styles.exitLabel}>{ex.label}</span>
-              <Handle type="source" id={ex.id} position={Position.Right} />
-            </div>
-          ))}
+      {showExitLabels ? (
+        <div className={styles.footer}>
+          <div className={styles.exits}>
+            {exits.map((ex) => (
+              <div key={ex.id} className={styles.exitRow}>
+                <span className={styles.exitLabel}>{ex.label}</span>
+                <Handle type="source" id={ex.id} position={Position.Right} />
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
         <Handle type="source" position={Position.Right} id={exits[0]?.id} />
