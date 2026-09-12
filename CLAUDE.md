@@ -200,7 +200,7 @@ src/
     entries.ts          — getFlowEntries: a sub-flow's named entries, derived from its `start` nodes
     exits.ts            — getFlowExits: a sub-flow's named exits, derived from its `end` nodes
     grouping.ts         — group a selection into a child flow / ungroup one level back out
-    edgeRouting.ts       — routeAroundNodes: obstacle-aware edge path (grid A* + smoothing), DOM-free/pure
+    edgeRouting.ts       — edgePath: right-angled edge geometry, routed around nodes (grid A* + smoothing), DOM-free/pure
     api.ts              — analyzeTasks / analyzeSubFlow / analyzeStrategic → the three /api/analyze* endpoints
     analysisRunner.ts   — chains the three analysis levels, feeding each into the next; emits progress per stage
     useAnalysis.ts      — hook owning the multi-level run (result, stage, error); kept out of the store on purpose
@@ -225,8 +225,8 @@ src/
       TerminalNode.module.css — shared styles for Start and End nodes
     edges/
       LoopEdge.tsx       — dashed, routed "loopback" edge type for feedback-loop back edges
-      SmartEdge.tsx      — default "smart" edge type; plain bezier unless it would cross a node,
-                           then routes around it via lib/edgeRouting.ts
+      SmartEdge.tsx      — default "smart" edge type; right-angled path with radiused corners,
+                           routed around any node in the way, via lib/edgeRouting.ts
       obstacles.ts       — ObstaclesContext: node-id → rect map Canvas provides for edge routing
 server/
   index.ts              — Express app; POST /api/analyze{,/subflow,/strategic}, GET /api/health
@@ -258,14 +258,27 @@ server/
   not reach `doc.edges`, export, sync, or the analysis payload (which carries its own pre-computed, named
   `loops` array instead — see `serializeLoop()` in `lib/api.ts`).
 - **Edge routing** — every non-loop edge renders as `SmartEdge` (`components/edges/SmartEdge.tsx`), the
-  `loopback` back-edge as `LoopEdge`; both call `routeAroundNodes()` (`lib/edgeRouting.ts`) and fall back
-  to their plain bezier/smoothstep path when it returns `null` (nothing to avoid, or no route found).
+  `loopback` back-edge as `LoopEdge`; both get their geometry from the single `edgePath()`
+  (`lib/edgeRouting.ts`), so **every edge is one visual language** — right-angled legs with radiused
+  corners — and the three edge states differ only in stroke (loops dashed + mustard/plum with a retry
+  pill, the self-loop arc in `LoopEdge` being the one shape the router can't express). `edgePath()` is a
+  two-tier ladder: draw the default orthogonal path (`orthogonalWaypoints()`, mid-split between the two
+  handles) when it's clear, else search around the obstacles with A*, else fall back to that same default.
+  Both tiers finish through the *same* `smoothPath()`, which is what makes the routed and unrouted looks
+  identical by construction rather than by keeping two sets of constants in step — don't reintroduce a
+  second path generator. The clearance gate must test the polyline actually being **drawn**: the old
+  `bezierClear()` tested a curve that was no longer rendered once the default went orthogonal, so it could
+  pass while the drawn mid-split leg sliced straight through a card. Deliberately *not* a longer ladder of
+  candidate shapes — letting one edge mid-split while its neighbour in the same situation picks a
+  different form reads worse than both routing.
   Obstacle rects are derived from node geometry at render time in `Canvas.tsx` (`ObstaclesContext`,
   `components/edges/obstacles.ts`) — like the loop decoration, this must never reach `doc.nodes`/`doc.edges`,
   export, sync, or the analysis payload. Routing stays live through a drag (recomputed every frame,
   same as node position) rather than dropping to the plain path and re-routing on drop — the
   obstacle map was already recomputing every frame regardless, since the dragged node's position
   is part of its cache key, so disabling routing bought no savings, only a jarring style flicker.
+  (That flicker is moot now that the plain and routed paths look the same — but so is any reason to
+  turn routing off mid-drag, since it never saved the recompute.)
   `routeAroundNodes()`'s A* is also direction-constrained at both ends — it must leave the source
   moving in the handle's outward direction and arrive at the target moving in its inward direction
   — because the cell path is stitched to two fixed straight stub segments whose directions are set

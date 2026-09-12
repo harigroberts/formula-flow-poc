@@ -1,7 +1,7 @@
 import { memo, useCallback, useContext } from 'react';
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, useStoreApi, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, useStoreApi, type EdgeProps } from '@xyflow/react';
 import { useWorkflowStore } from '@/store/workflowStore';
-import { routeAroundNodes } from '@/lib/edgeRouting';
+import { edgePath } from '@/lib/edgeRouting';
 import { ObstaclesContext } from './obstacles';
 import type { WFEdgeData } from '@/types';
 import styles from './LoopEdge.module.css';
@@ -49,8 +49,8 @@ function LoopEdge({
   let labelY: number;
 
   if (source === target) {
-    // getSmoothStepPath degenerates on a self-loop (source and target share a node), so
-    // draw a small arc hanging off the node instead.
+    // No orthogonal path exists for a self-loop (source and target share a node), so draw a
+    // small arc hanging off the node instead.
     const radius = 44;
     const midX = (sourceX + targetX) / 2;
     const midY = Math.max(sourceY, targetY) + radius;
@@ -58,37 +58,17 @@ function LoopEdge({
     labelX = midX;
     labelY = midY + 4;
   } else {
-    const route = obstacleMap
-      ? routeAroundNodes({
-          sourceX,
-          sourceY,
-          sourcePosition,
-          targetX,
-          targetY,
-          targetPosition,
-          obstacles: [...obstacleMap.values()],
-        })
-      : null;
-
-    if (route) {
-      path = route.path;
-      labelX = route.labelX;
-      labelY = route.labelY;
-    } else {
-      const [p, lx, ly] = getSmoothStepPath({
-        sourceX,
-        sourceY,
-        sourcePosition,
-        targetX,
-        targetY,
-        targetPosition,
-        borderRadius: 12,
-        offset: 28,
-      });
-      path = p;
-      labelX = lx;
-      labelY = ly;
-    }
+    // Same geometry as every other edge — a back edge is distinguished by its stroke and pill,
+    // not by its shape.
+    ({ path, labelX, labelY } = edgePath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      obstacles: obstacleMap ? [...obstacleMap.values()] : [],
+    }));
   }
 
   const color = guarded ? 'var(--color-mustard)' : 'var(--color-error)';

@@ -14,9 +14,10 @@ export interface RouteInput {
   targetX: number;
   targetY: number;
   targetPosition: Position;
-  /** Raw node rects to avoid. Callers should exclude the edge's own source/target node —
-   *  the curve necessarily starts/ends on that node's border, so including it here would
-   *  make every edge look "blocked" by its own endpoint. Inflation happens inside. */
+  /** Raw node rects to avoid, *including* the edge's own source and target node — a path can
+   *  legitimately need to cross the far side of its own card (see the backwards and
+   *  perpendicular cases in orthogonalWaypoints), and the clearance test exempts only the
+   *  short stub legs at each handle rather than whole nodes. Inflation happens inside. */
   obstacles: Rect[];
 }
 
@@ -33,7 +34,6 @@ const CLEARANCE = 16; // px inflation around each obstacle
 const STUB = 24; // px the search start/end is pulled out from the handle before routing
 const CORNER_RADIUS = 20; // px pulled back from each waypoint corner when smoothing
 const TURN_PENALTY = 2; // extra grid-step cost for a direction change, favours long straight runs
-const BEZIER_SAMPLES = 32;
 const MIN_CELL = 10; // px, floor on grid cell size
 const MAX_GRID_AXIS = 140; // cells per axis, keeps the grid under ~20k cells
 const BOUNDS_PADDING = 60; // px search-area margin beyond the obstacles/endpoints
@@ -44,54 +44,33 @@ const MAX_EXPANSIONS = 20000;
 // in the whole flow — on a wide canvas that makes every cell large enough for the stub-snapping
 // residual below to become a visible kink instead of a sub-pixel rounding error.
 const LOCAL_WINDOW = 400;
-// A bezier's own start/end point sits exactly on its source/target node's border, so the
-// first and last few samples are trivially "inside" that node's own inflated rect. Samples
-// within this radius of either endpoint are exempt from the collision test — set safely above
-// CLEARANCE so a genuinely clear short hop between two close nodes can't land exactly on the
-// inflation boundary and flicker between routed/unrouted.
+// A path's own start/end point sits exactly on its source/target node's border, so the first
+// and last stretch of it is trivially "inside" that node's own inflated rect. That much of the
+// first and last leg is exempt from the clearance test — set safely above CLEARANCE so a
+// genuinely clear short hop between two close nodes can't land exactly on the inflation
+// boundary and flicker between routed/unrouted.
+//
+// The invariant that makes exempting *only* this much correct is STUB > CLEARANCE: a leg
+// leaves perpendicular to the border, so it exits the own inflated rect at exactly CLEARANCE
+// px, 4px before the exemption ends — no gap. And every interior leg sits at least STUB from
+// the handle along the normal, i.e. STUB - CLEARANCE = 8px clear of the inflation, so interior
+// legs are never exempted and never need to be.
 const OWN_NODE_SKIP = CLEARANCE + 4;
-
-// Duplicated from @xyflow/system's bezier-edge.ts rather than sampling a DOM path, so this
-// module stays pure and testable with `tsx`. If xyflow's default curvature ever changes this
-// collision check just becomes slightly conservative/permissive — never a wrong final path,
-// since the A* fallback still avoids the real obstacles.
-function calculateControlOffset(distance: number, curvature: number): number {
-  if (distance >= 0) return 0.5 * distance;
-  return curvature * 25 * Math.sqrt(-distance);
-}
-
-function getControlPoint(
-  pos: Position,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  c: number,
-): Point {
-  switch (pos) {
-    case Position.Left:
-      return [x1 - calculateControlOffset(x1 - x2, c), y1];
-    case Position.Right:
-      return [x1 + calculateControlOffset(x2 - x1, c), y1];
-    case Position.Top:
-      return [x1, y1 - calculateControlOffset(y1 - y2, c)];
-    case Position.Bottom:
-    default:
-      return [x1, y1 + calculateControlOffset(y2 - y1, c)];
-  }
-}
-
-function cubicPoint(t: number, p0: Point, p1: Point, p2: Point, p3: Point): Point {
-  const mt = 1 - t;
-  const a = mt * mt * mt;
-  const b = 3 * mt * mt * t;
-  const c = 3 * mt * t * t;
-  const d = t * t * t;
-  return [
-    a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0],
-    a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1],
-  ];
-}
+// Two waypoints within this of each other on an axis count as sharing it. Used both to test
+// axis-alignment and as the strict-inequality epsilon on the direction predicates below.
+const AXIS_EPS = 0.5;
+// A split line closer than this to an endpoint can't hold two full-radius corners, and at ~0
+// separation it collapses onto a straight line doubling back over both nodes.
+const MIN_SPLIT = 2 * CORNER_RADIUS;
+// How far past the target's split axis to escape when that happens. 2*STUB keeps both legs at
+// >= 2*CORNER_RADIUS, so neither corner gets clamped.
+const BACKTRACK = 2 * STUB;
+// Below this much cross-axis offset, a mid-split renders as a long straight run plus a narrow
+// S-jog with tiny clamped corners. Two nodes on the same row with different measured heights
+// sit exactly here (their handles are (h1-h2)/2 apart), and sub-pixel measurement noise makes
+// the jog jitter across zero mid-drag. Draw one straight line instead — the slope is ~2° at
+// this magnitude over any realistic edge length, so it reads as horizontal, not as a diagonal.
+const JOG_SNAP = 6;
 
 function inflate(r: Rect, by: number): Rect {
   return { x: r.x - by, y: r.y - by, width: r.width + 2 * by, height: r.height + 2 * by };
@@ -106,20 +85,152 @@ function pointHitsAny(x: number, y: number, rects: Rect[]): boolean {
   return false;
 }
 
-function bezierClear(input: RouteInput, inflated: Rect[]): boolean {
-  const { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition } = input;
-  const curvature = 0.25;
-  const c1 = getControlPoint(sourcePosition, sourceX, sourceY, targetX, targetY, curvature);
-  const c2 = getControlPoint(targetPosition, targetX, targetY, sourceX, sourceY, curvature);
-  const p0: Point = [sourceX, sourceY];
-  const p3: Point = [targetX, targetY];
-  for (let i = 1; i < BEZIER_SAMPLES; i++) {
-    const t = i / BEZIER_SAMPLES;
-    const point = cubicPoint(t, p0, c1, c2, p3);
-    if (distance(point, p0) < OWN_NODE_SKIP || distance(point, p3) < OWN_NODE_SKIP) continue;
-    if (pointHitsAny(point[0], point[1], inflated)) return false;
+function dot(a: Point, b: Point): number {
+  return a[0] * b[0] + a[1] * b[1];
+}
+
+/** Exact segment-vs-rect overlap for an *axis-aligned* segment: its bounding box is the segment
+ *  itself, so an AABB test is not an approximation. Unlike sampling the segment at intervals
+ *  this cannot tunnel past a rect it only clips, and costs 4 comparisons per rect. */
+function segmentHitsAny(a: Point, b: Point, rects: Rect[]): boolean {
+  const x0 = Math.min(a[0], b[0]);
+  const x1 = Math.max(a[0], b[0]);
+  const y0 = Math.min(a[1], b[1]);
+  const y1 = Math.max(a[1], b[1]);
+  for (const r of rects) {
+    if (x1 >= r.x && x0 <= r.x + r.width && y1 >= r.y && y0 <= r.y + r.height) return true;
+  }
+  return false;
+}
+
+/** Moves `from` towards `to` by `by`, clamped to `to`. Both points must share an axis. */
+function advance(from: Point, to: Point, by: number): Point {
+  const len = distance(from, to);
+  if (len <= by) return to;
+  const t = by / len;
+  return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+}
+
+/** True when none of the polyline's legs cross an (already inflated) obstacle. The first and
+ *  last leg are trimmed by OWN_NODE_SKIP at the handle end, since they necessarily start inside
+ *  their own node's inflated rect — see that constant for why trimming just those is sound. */
+function polylineClear(points: Point[], inflated: Rect[]): boolean {
+  const last = points.length - 1;
+  for (let i = 0; i < last; i++) {
+    let a = points[i];
+    let b = points[i + 1];
+    if (i === 0) a = advance(a, b, OWN_NODE_SKIP);
+    if (i === last - 1) b = advance(b, a, OWN_NODE_SKIP);
+    if (distance(a, b) < AXIS_EPS) continue;
+    if (segmentHitsAny(a, b, inflated)) return false;
   }
   return true;
+}
+
+/** Where to put a split line between two coordinates on the same axis. Normally the midpoint,
+ *  but when they're nearly equal the midpoint line collapses onto the two legs it's meant to
+ *  separate — for a backwards edge that degenerates into a single line drawn three times over
+ *  itself, with the arrowhead pointing the wrong way. Escape past `b` instead. */
+function splitCoord(a: number, b: number): number {
+  if (Math.abs(b - a) >= MIN_SPLIT) return (a + b) / 2;
+  return b + (Math.sign(b - a) || 1) * BACKTRACK;
+}
+
+/** The waypoints of the default orthogonal path: out of the source handle, around to the target
+ *  handle, every leg horizontal or vertical. This is the shape drawn when nothing is in the way,
+ *  and also the last resort when A* fails — so it must be valid for *any* pair of handle
+ *  positions, not just the three combos the app currently uses (Right/Top/Bottom → Left).
+ *
+ *  `S→s1` and `t1→T` are fixed straight stubs whose directions are set by the handle, so only
+ *  two things can go wrong: an interior leg pointing back along -sDir, or the leg arriving at t1
+ *  pointing along +tDir. Either forces a fixed stub to double back on itself, which reads as an
+ *  overshoot-and-loop right at the node (the same failure the A* direction constraints exist to
+ *  prevent — see astar()). A leg *perpendicular* to a stub can't violate that stub's
+ *  constraint, which is what makes the parallel case below safe for any split value. */
+function orthogonalWaypoints(input: RouteInput): Point[] {
+  const { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition } = input;
+  const sDir = directionFor(sourcePosition);
+  const tDir = directionFor(targetPosition);
+  const S: Point = [sourceX, sourceY];
+  const T: Point = [targetX, targetY];
+  const s1: Point = [S[0] + sDir[0] * STUB, S[1] + sDir[1] * STUB];
+  const t1: Point = [T[0] + tDir[0] * STUB, T[1] + tDir[1] * STUB];
+  const facing = dot(sDir, tDir); // -1 opposed | 0 perpendicular | +1 same, since both are unit axes
+  const sHorizontal = sDir[1] === 0;
+
+  // Handles face each other and the target is ahead: split the *travel* axis at the midpoint
+  // between the two handles. The common left-to-right task→task edge. Built from S and T rather
+  // than the stub points, because for a gap narrower than 2*STUB the stubs overshoot past each
+  // other and a leg from s1 to the split line would run backwards. The midpoint is the same
+  // either way ((s1+t1)/2 === (S+T)/2), so for a normal gap this is exactly what collapsing the
+  // stub form would give — and for a narrow one it degrades to two short legs instead of a jog.
+  if (facing === -1 && dot([T[0] - S[0], T[1] - S[1]], sDir) > AXIS_EPS) {
+    if (sHorizontal) {
+      if (Math.abs(T[1] - S[1]) <= JOG_SNAP) return [S, T];
+      const mx = (S[0] + T[0]) / 2;
+      return [S, [mx, S[1]], [mx, T[1]], T];
+    }
+    if (Math.abs(T[0] - S[0]) <= JOG_SNAP) return [S, T];
+    const my = (S[1] + T[1]) / 2;
+    return [S, [S[0], my], [T[0], my], T];
+  }
+
+  let mid: Point[];
+  if (facing === 0) {
+    // Perpendicular handles, e.g. a decision's Yes/No leaving top/bottom into a Left target.
+    // One corner is enough when the path can keep heading outward from the source and still
+    // arrive at t1 from the correct side; that puts no corner on either stub point, so both
+    // corners take the full radius. Otherwise turn at both stubs instead: those legs are each
+    // perpendicular to the stub they touch, so that form is valid wherever the target sits.
+    const delta: Point = [t1[0] - s1[0], t1[1] - s1[1]];
+    const natural: Point = sHorizontal ? [t1[0], s1[1]] : [s1[0], t1[1]];
+    const elbow: Point = sHorizontal ? [s1[0], t1[1]] : [t1[0], s1[1]];
+    const continuesOut = dot(delta, sDir) > AXIS_EPS;
+    const arrivesInward = dot(delta, [-tDir[0], -tDir[1]]) > AXIS_EPS;
+    mid = [continuesOut && arrivesInward ? natural : elbow];
+  } else {
+    // Everything else: handles facing the same way, or facing each other with the target behind
+    // the source (a backwards edge — the shape a feedback loop's back edge takes). Split the
+    // *cross* axis, which leaves the first and last interior legs perpendicular to both stubs.
+    const stubsAligned = sHorizontal
+      ? Math.abs(s1[0] - t1[0]) < AXIS_EPS
+      : Math.abs(s1[1] - t1[1]) < AXIS_EPS;
+    if (stubsAligned) {
+      // Both stubs already sit on one line, so connect them straight along it. Splitting would
+      // put both split points on that same line — an out-and-back spur, not a detour, and its
+      // turn is a 180 degree reversal rather than a corner.
+      mid = [];
+    } else if (sHorizontal) {
+      const my = splitCoord(s1[1], t1[1]);
+      mid = [[s1[0], my], [t1[0], my]];
+    } else {
+      const mx = splitCoord(s1[0], t1[0]);
+      mid = [[mx, s1[1]], [mx, t1[1]]];
+    }
+  }
+
+  return [S, s1, ...mid, t1, T];
+}
+
+/** Drops any waypoint sitting mid-run on a straight leg. Deliberately *not* stringPull() with an
+ *  empty obstacle list: that merges any two waypoints sharing an axis without consulting the one
+ *  between them, so it flattens an exact out-and-back detour into a straight line — which would
+ *  leave a handle stub doubling back on itself. Merging only collinear, same-direction triples
+ *  can't do that. Run dedupe() first: the direction test is ill-defined on a zero-length leg. */
+function collapseCollinear(points: Point[]): Point[] {
+  if (points.length <= 2) return points;
+  const out: Point[] = [points[0]];
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = out[out.length - 1];
+    const cur = points[i];
+    const next = points[i + 1];
+    const a: Point = [cur[0] - prev[0], cur[1] - prev[1]];
+    const b: Point = [next[0] - cur[0], next[1] - cur[1]];
+    const collinear = Math.abs(a[0] * b[1] - a[1] * b[0]) < AXIS_EPS && dot(a, b) > 0;
+    if (!collinear) out.push(cur);
+  }
+  out.push(points[points.length - 1]);
+  return out;
 }
 
 function directionFor(pos: Position): Point {
@@ -376,7 +487,6 @@ function dedupe(points: Point[]): Point[] {
 // staircase of grid steps into a single shallow-diagonal shortcut — technically shorter, but it
 // reads as a mistake: a leg that's almost but not quite horizontal. Only merging same-row/
 // same-column runs keeps every leg cleanly horizontal or vertical; corners stay rounded.
-const AXIS_EPS = 0.5;
 
 /** Collapse a run of collinear grid waypoints into one waypoint, dropping a point whenever the
  *  straight (horizontal or vertical) line between its neighbours is still clear of every
@@ -416,8 +526,9 @@ function stringPull(points: Point[], obstacles: Rect[]): Point[] {
  *  CORNER_RADIUS (clamped to half the shorter leg), and places the label at the midpoint by
  *  approximate arc length. */
 function smoothPath(points: Point[]): Route {
-  if (points.length === 2) {
-    const [p0, p1] = points;
+  if (points.length <= 2) {
+    const p0 = points[0];
+    const p1 = points[points.length - 1];
     return {
       path: `M ${p0[0]} ${p0[1]} L ${p1[0]} ${p1[1]}`,
       labelX: (p0[0] + p1[0]) / 2,
@@ -468,16 +579,11 @@ function smoothPath(points: Point[]): Route {
   return { path: d, labelX, labelY };
 }
 
-/** Routes an edge around any node it would otherwise cross. Returns null when the plain
- *  bezier is already clear (caller should render its normal path) or when no route was
- *  found within the search budget. */
-export function routeAroundNodes(input: RouteInput): Route | null {
-  const { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, obstacles } = input;
-  if (obstacles.length === 0) return null;
-
-  const inflated = obstacles.map((r) => inflate(r, CLEARANCE));
-  if (bezierClear(input, inflated)) return null;
-
+/** Searches for a way around the nodes an edge would otherwise cross. `inflated` is the
+ *  obstacle set already grown by CLEARANCE. Returns null when no route was found within the
+ *  search budget — the caller falls back to the default orthogonal path. */
+function routeAroundNodes(input: RouteInput, inflated: Rect[]): Route | null {
+  const { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition } = input;
   const [sdx, sdy] = directionFor(sourcePosition);
   const [tdx, tdy] = directionFor(targetPosition);
   const stubSourceEnd: Point = [sourceX + sdx * STUB, sourceY + sdy * STUB];
@@ -532,8 +638,34 @@ export function routeAroundNodes(input: RouteInput): Route | null {
   gridPoints[lastIdx] = stubTargetEnd;
 
   const fullPoints = dedupe([[sourceX, sourceY], ...gridPoints, [targetX, targetY]]);
-  const simplified = dedupe(stringPull(fullPoints, inflated));
+  // stringPull keeps a collinear waypoint when the corridor between its neighbours is blocked,
+  // which leaves smoothPath rounding a corner that doesn't turn. Dropping a point that lies on
+  // the straight segment between its neighbours can't change the drawn shape or its clearance.
+  const simplified = collapseCollinear(dedupe(stringPull(fullPoints, inflated)));
   if (simplified.length < 2) return null;
 
   return smoothPath(simplified);
+}
+
+/** The path for one edge: right-angled legs with radiused corners, routed around any node in the
+ *  way. The single entry point for every edge type — loop edges differ only in stroke, so they
+ *  call this too, which is what keeps all edges in one visual language.
+ *
+ *  Two tiers: draw the default orthogonal path when it's clear, otherwise search for a way
+ *  around. Crucially the clearance test runs against the polyline we would actually *draw* — a
+ *  test of some other shape can pass while the drawn path slices straight through a card.
+ *
+ *  Deliberately not a longer ladder of candidate shapes. Letting one edge use a mid-split while
+ *  its neighbour in the same situation picks a different form reads worse than both routing. */
+export function edgePath(input: RouteInput): Route {
+  const points = orthogonalWaypoints(input);
+  const plain = () => smoothPath(collapseCollinear(dedupe(points)));
+  if (input.obstacles.length === 0) return plain();
+
+  const inflated = input.obstacles.map((r) => inflate(r, CLEARANCE));
+  if (polylineClear(points, inflated)) return plain();
+
+  // A failed search falls through to the default path, which may cross a node — but it's the
+  // canonical shape, so the failure mode is a clean-looking wrong path, not a squiggle.
+  return routeAroundNodes(input, inflated) ?? plain();
 }
