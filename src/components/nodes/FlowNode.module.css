@@ -58,22 +58,37 @@
   text-overflow: ellipsis;
 }
 
-/* Footer bar — the "grey bar" divider that sets the named exit rows off from the rest of the
-   card. Only rendered when there's an actual exit name worth showing (see `showExitLabels` in
-   FlowNode.tsx); a single generic "Exit" or no named exits at all skips this entirely in favour
-   of a plain handle. The negative side margins cancel `.node`'s horizontal padding so the
-   divider and exit rows reach the card border; no right padding of its own, since `.exits`
-   needs to reach the true right border so its handles land flush on it, same as every other
-   node type — React Flow anchors a right-side handle with `right: 0; translate(50%, -50%)`
-   relative to the nearest positioned ancestor's edge, not wherever padding puts the content. */
+/* Footer bar — the "grey bar" divider that sets the named entry and exit rows off from the rest
+   of the card. Only rendered when there's an actual name worth showing (see `showEntryLabels` /
+   `showExitLabels` in FlowNode.tsx); a single generic "Exit"/"Entry" or no named ones at all skips
+   this entirely in favour of a plain handle centred on the card edge. Entries share this band
+   rather than getting a bar of their own above the title, which keeps the card compact.
+
+   The negative side margins cancel `.node`'s horizontal padding so the divider and the rows reach
+   the card border. No side padding of its own: `.entries` has to reach the true left border and
+   `.exits` the true right one for their handles to land flush, since React Flow anchors a handle
+   with `left/right: 0; translate(∓50%, -50%)` relative to the nearest positioned ancestor's edge,
+   not wherever padding puts the content. */
 .footer {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   margin: 10px -16px -12px;
-  padding: 10px 0 10px 16px;
+  padding: 10px 0;
   border-top: 1px solid var(--color-light-gray);
 }
 
+/* `margin-left: auto` keeps the exits hard right whether or not there's an entries column
+   opposite them, so a card with exits only looks exactly as it did before. */
 .exits {
+  margin-left: auto;
   text-align: right;
+  min-width: 0;
+}
+
+.entries {
+  text-align: left;
+  min-width: 0;
 }
 
 /* `position: relative` makes each row the containing block for its own handle, so the handle
@@ -86,6 +101,26 @@
 }
 
 .exitLabel {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-blue);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  pointer-events: none;
+}
+
+/* `position: relative` makes each row the containing block for its own handle, so the handle
+   stays vertically centred on its label as rows reflow. The left padding keeps the label text
+   clear of the handle dot anchored at the row's edge. */
+.entryRow {
+  position: relative;
+  padding: 3px 0 3px 14px;
+}
+
+.entryLabel {
   font-family: var(--font-heading);
   font-size: 10px;
   font-weight: 600;

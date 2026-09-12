@@ -9,7 +9,7 @@ export const SUBFLOW_PROMPT = `# Level 2 — integrated sub-flow analysis
 The user message contains a JSON object with:
 - **flow** — the single sub-flow you are analysing (\`{ id, name, description, departmentId, parentFlowId }\`).
 - **nodes** / **edges** — only the nodes and edges belonging to that sub-flow.
-- **parentContext** — how this sub-flow is used by its parent: the parent flow's name, and the exits (\`end\` node names) through which control returns.
+- **parentContext** — how this sub-flow is used by its parent: the parent flow's name, the entries (\`start\` node names) through which control arrives, and the exits (\`end\` node names) through which it returns.
 - **taskFindings** — the level-1, node-by-node findings already produced for these nodes. **These have already been recommended to the user.**
 - **childAnalyses** — level-2 analyses of any sub-flows nested inside this one, already completed.
 - **frequencies**, **personas**, **departments** — the org-wide registries.

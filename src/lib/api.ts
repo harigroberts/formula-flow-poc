@@ -1,3 +1,4 @@
+import { getFlowEntries } from '@/lib/entries';
 import { getFlowExits } from '@/lib/exits';
 import { findLoops, type Loop } from '@/lib/cycles';
 import type {
@@ -159,9 +160,10 @@ export async function analyzeSubFlow(
       loops: findLoops(doc, flow.id).map((l) => serializeLoop(doc, l)),
       parentContext: {
         parentFlowName: doc.flows.find((f) => f.id === flow.parentFlowId)?.name ?? null,
-        // getFlowExits sorts by canvas y with an id tie-break, so this matches the order the
-        // user sees on the parent's flow card. Filtering `nodes` directly would instead give
-        // arbitrary store order, which is both wrong and unstable for the cache key.
+        // getFlowEntries / getFlowExits sort by canvas y with an id tie-break, so these match
+        // the order the user sees on the parent's flow card. Filtering `nodes` directly would
+        // instead give arbitrary store order, which is both wrong and unstable for the cache key.
+        entries: getFlowEntries(doc, flow.id).map((e) => e.label),
         exits: getFlowExits(doc, flow.id).map((e) => e.label),
       },
       // Sent to the model, but excluded from the cache key server-side — see EXCLUDE_FROM_KEY.

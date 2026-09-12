@@ -43,8 +43,8 @@ function hasId(v: unknown): v is { id: unknown } {
  * so `doc.nodes` reorders during ordinary editing, and `updateNodeData` spreads patches over
  * existing data so key order drifts too. Hashing the raw JSON would miss constantly.
  *
- * Plain string arrays are left alone — `tools` / `inputs` / `outputs` and `parentContext.exits`
- * carry meaning in their order.
+ * Plain string arrays are left alone — `tools` / `inputs` / `outputs` and `parentContext.entries`
+ * / `parentContext.exits` carry meaning in their order.
  */
 export function canonical(value: unknown): unknown {
   if (Array.isArray(value)) {

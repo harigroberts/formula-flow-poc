@@ -5,6 +5,7 @@ import type { WFNode, WFEdge, WFEdgeData, Flow, WorkflowDoc, WFNodeData, TaskDat
 import { seedDoc } from '@/lib/seed';
 import { normalizeDoc } from '@/lib/persistence';
 import { canGroupNodes, buildGroupedFlow, canUngroupFlow, buildUngroupedFlow, groupableNodeIds } from '@/lib/grouping';
+import { collectFlowIds } from '@/lib/api';
 
 interface BreadcrumbEntry {
   flowId: string;
@@ -77,6 +78,51 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+/**
+ * The flows that die with a set of removed nodes: for every removed `flow` node, its child flow
+ * and every sub-flow nested inside that, to any depth. Removing only the immediate child (what
+ * `deleteNode` used to do) orphans a nested sub-flow's whole subtree in the doc, which nesting
+ * makes easy to hit. `collectFlowIds` already does this BFS for the analysis payload, so the
+ * descendant walk is reused rather than rewritten here.
+ *
+ * Takes the doc as it was *before* the deletion — it has to be able to look the removed flow
+ * nodes up to find their `childFlowId`.
+ */
+function doomedFlowIds(doc: WorkflowDoc, removedNodeIds: string[]): Set<string> {
+  const removed = new Set(removedNodeIds);
+  const doomed = new Set<string>();
+  for (const node of doc.nodes) {
+    if (!removed.has(node.id) || node.data.type !== 'flow') continue;
+    for (const id of collectFlowIds(doc, (node.data as FlowRefData).childFlowId)) doomed.add(id);
+  }
+  return doomed;
+}
+
+/**
+ * Drop the removed nodes, everything on a doomed canvas, and every edge left pointing at either.
+ * That last part covers the edges another canvas owns: a parent's edge binds to a sub-flow exit
+ * by `sourceHandle` (an `end` node id) and to an entry by `targetHandle` (a `start` node id), so
+ * nothing on the canvas being edited would otherwise catch them. 'yes'/'no' are the only handle
+ * ids that aren't node ids.
+ */
+function pruneDoc(doc: WorkflowDoc, removedNodeIds: string[], doomed: Set<string>): WorkflowDoc {
+  const removed = new Set(removedNodeIds);
+  const nodes = doc.nodes.filter(n => !removed.has(n.id) && !doomed.has(n.flowId));
+  const alive = new Set(nodes.map(n => n.id));
+  const edges = doc.edges.filter(e =>
+    alive.has(e.source) &&
+    alive.has(e.target) &&
+    !doomed.has(e.flowId) &&
+    (!e.sourceHandle || e.sourceHandle === 'yes' || e.sourceHandle === 'no' || alive.has(e.sourceHandle)) &&
+    (!e.targetHandle || alive.has(e.targetHandle))
+  );
+  return { ...doc, flows: doc.flows.filter(f => !doomed.has(f.id)), nodes, edges };
+}
+
+function removeNodes(doc: WorkflowDoc, nodeIds: string[]): WorkflowDoc {
+  return pruneDoc(doc, nodeIds, doomedFlowIds(doc, nodeIds));
+}
+
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   doc: seedDoc,
   currentFlowId: seedDoc.rootFlowId,
@@ -89,14 +135,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const currentNodes = state.doc.nodes.filter(n => n.flowId === state.currentFlowId);
       const otherNodes = state.doc.nodes.filter(n => n.flowId !== state.currentFlowId);
       const updated = applyNodeChanges(changes, currentNodes) as (WFNode & { flowId: string })[];
+      const nextDoc = { ...state.doc, nodes: [...otherNodes, ...updated] };
       // Keyboard deletion (deleteKeyCode="Delete") comes through here, not deleteNode, so this
-      // is the only place to drop a parent flow node's edge when its exit (an `end` node in the
-      // child flow) is removed. 'yes'/'no' handles can never collide with a node id.
+      // is the only place to clean up after it: dropping a parent flow node's edge when the
+      // exit or entry it binds to is removed, and taking a deleted sub-flow's whole subtree with
+      // it. `removeNodes` is given the pre-deletion doc so it can still see what it's removing.
       const removed = changes.filter(c => c.type === 'remove').map(c => c.id);
-      const edges = removed.length
-        ? state.doc.edges.filter(e => !e.sourceHandle || !removed.includes(e.sourceHandle))
-        : state.doc.edges;
-      return { doc: { ...state.doc, nodes: [...otherNodes, ...updated], edges } };
+      if (removed.length === 0) return { doc: nextDoc };
+      // `doomedFlowIds` reads the pre-change doc so it can still see the flow nodes being
+      // removed; the prune itself runs over the post-change doc so position/selection changes
+      // applied in the same batch aren't thrown away.
+      return { doc: pruneDoc(nextDoc, removed, doomedFlowIds(state.doc, removed)) };
     });
   },
 
@@ -128,6 +177,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           const exitNode = state.doc.nodes.find(n => n.id === e.sourceHandle);
           if (source?.data.type === 'flow' && exitNode?.data.type === 'end') {
             e.data = { ...e.data, exit: (exitNode.data as TerminalData).name };
+          }
+        }
+        // Sub-flow entry: the mirror of the above on the target side — the handle id is a
+        // `start` node inside the child flow, and data.entry carries its name.
+        if (e.targetHandle) {
+          const target = state.doc.nodes.find(n => n.id === e.target);
+          const entryNode = state.doc.nodes.find(n => n.id === e.targetHandle);
+          if (target?.data.type === 'flow' && entryNode?.data.type === 'start') {
+            e.data = { ...e.data, entry: (entryNode.data as TerminalData).name };
           }
         }
       });
@@ -320,12 +378,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             : f
         );
       }
-      // Renaming an `end` node renames the exit it represents on the parent's flow node. The
-      // card label re-derives itself, but the edge's stored data.exit needs refreshing.
+      // Renaming an `end` node renames the exit it represents on the parent's flow node — and a
+      // `start` node the entry. The card label re-derives itself, but the edge's stored
+      // data.exit / data.entry needs refreshing.
       if (updated && updated.data.type === 'end') {
         const label = (updated.data as TerminalData).name;
         edges = state.doc.edges.map(e =>
           e.sourceHandle === nodeId ? { ...e, data: { ...e.data, exit: label } } : e
+        );
+      }
+      if (updated && updated.data.type === 'start') {
+        const label = (updated.data as TerminalData).name;
+        edges = state.doc.edges.map(e =>
+          e.targetHandle === nodeId ? { ...e, data: { ...e.data, entry: label } } : e
         );
       }
       return { doc: { ...state.doc, nodes, flows, edges } };
@@ -333,27 +398,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   deleteNode: (nodeId) => {
-    set((state) => {
-      const node = state.doc.nodes.find(n => n.id === nodeId);
-      let flows = state.doc.flows;
-      // If deleting a flow node, also remove the child flow and all its descendant nodes/edges
-      if (node?.data.type === 'flow') {
-        const childFlowId = (node.data as FlowRefData).childFlowId;
-        flows = state.doc.flows.filter(f => f.id !== childFlowId);
-        const nodes = state.doc.nodes.filter(n => n.id !== nodeId && n.flowId !== childFlowId);
-        const edges = state.doc.edges.filter(
-          e => e.source !== nodeId && e.target !== nodeId && e.flowId !== childFlowId
-        );
-        return { doc: { ...state.doc, flows, nodes, edges }, selectedNodeId: null };
-      }
-      // `sourceHandle !== nodeId` drops the parent's edge when an `end` node — i.e. a sub-flow
-      // exit — is deleted; that edge lives on a different canvas, so nothing else catches it.
-      const nodes = state.doc.nodes.filter(n => n.id !== nodeId);
-      const edges = state.doc.edges.filter(
-        e => e.source !== nodeId && e.target !== nodeId && e.sourceHandle !== nodeId
-      );
-      return { doc: { ...state.doc, nodes, edges }, selectedNodeId: null };
-    });
+    set((state) => ({ doc: removeNodes(state.doc, [nodeId]), selectedNodeId: null }));
   },
 
   ungroupFlow: (flowNodeId) => {

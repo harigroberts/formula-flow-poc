@@ -67,6 +67,7 @@ export default function Sidebar() {
           <li>Select a node to edit its details</li>
           <li>Press Delete to remove selected</li>
           <li>Shift/Cmd/Ctrl-click nodes, or Shift-drag a box, to multi-select — then group them into a sub-flow</li>
+          <li>Sub-flows can be grouped into sub-flows; Ungroup dissolves one level at a time</li>
         </ul>
       </div>
     </aside>

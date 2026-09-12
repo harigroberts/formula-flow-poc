@@ -1,5 +1,6 @@
 import type { WorkflowDoc, WFNode, WFEdge, Flow, FlowRefData, TerminalData } from '@/types';
 import { findLoops } from './cycles';
+import { getFlowEntries } from './entries';
 import { getFlowExits } from './exits';
 
 function uid() {
@@ -13,9 +14,12 @@ type DocEdge = WFEdge & { flowId: string };
 
 /**
  * Nodes in `nodeIds` that either receive an edge from outside the selection, or receive no
- * incoming edge at all (a root of the induced subgraph). A group needs exactly one of these —
- * it's where the child flow's `start` node connects to, and where the parent's incoming
- * boundary edges get redirected onto the new flow node.
+ * incoming edge at all (a root of the induced subgraph). Each one becomes a way into the new
+ * child flow: it gets a `start` node connected to it, and the parent's incoming boundary edges
+ * are redirected onto the matching entry handle of the new flow node.
+ *
+ * A group needs at least one. Several are fine — see `buildGroupedFlow` for how they collapse to
+ * a single entry when every incoming edge comes from the same place.
  */
 export function findEntryCandidates(doc: WorkflowDoc, flowId: string, nodeIds: string[]): string[] {
   const selectedSet = new Set(nodeIds);
@@ -72,9 +76,6 @@ export function canGroupNodes(doc: WorkflowDoc, flowId: string, nodeIds: string[
   if (entry.length === 0) {
     return { ok: false, reason: 'Selection has no way in — nothing outside it points at any selected node.' };
   }
-  if (entry.length > 1) {
-    return { ok: false, reason: 'Selection has more than one entry point.' };
-  }
 
   return { ok: true };
 }
@@ -102,7 +103,6 @@ export function buildGroupedFlow(
 
   const newChildFlowId = `flow-${uid()}`;
   const newFlowNodeId = `fnode-${uid()}`;
-  const startNodeId = `start-${uid()}`;
 
   const childFlow: Flow = { id: newChildFlowId, name: 'New Flow', description: '', parentFlowId: flowId };
   const newFlowNode: DocNode = {
@@ -114,8 +114,6 @@ export function buildGroupedFlow(
     data: { type: 'flow', name: 'New Flow', childFlowId: newChildFlowId, description: '' } as FlowRefData,
   };
 
-  const [entryNodeId] = findEntryCandidates(doc, flowId, ids);
-
   const ys = selectedNodes.map((n) => n.position.y);
   const xs = selectedNodes.map((n) => n.position.x);
   const minX = Math.min(...xs);
@@ -123,22 +121,99 @@ export function buildGroupedFlow(
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
 
-  const startNode: DocNode = {
-    id: startNodeId,
-    type: 'start',
-    flowId: newChildFlowId,
-    selected: false,
-    position: { x: minX - 260, y: (minY + maxY) / 2 },
-    data: { type: 'start', name: 'Start', description: '' } as TerminalData,
-  };
-  const startEdge: DocEdge = { id: `e-${uid()}`, source: startNodeId, target: entryNodeId, flowId: newChildFlowId };
-
+  const byId = (a: DocEdge, b: DocEdge) => a.id.localeCompare(b.id);
   const flowEdges = doc.edges.filter((e) => e.flowId === flowId);
   const internalEdges = flowEdges.filter((e) => selectedSet.has(e.source) && selectedSet.has(e.target));
-  const incomingBoundary = flowEdges.filter((e) => !selectedSet.has(e.source) && selectedSet.has(e.target));
+  const incomingBoundary = [
+    ...flowEdges.filter((e) => !selectedSet.has(e.source) && selectedSet.has(e.target)),
+  ].sort(byId);
   const outgoingBoundary = [...flowEdges.filter((e) => selectedSet.has(e.source) && !selectedSet.has(e.target))].sort(
-    (a, b) => a.id.localeCompare(b.id),
+    byId,
   );
+
+  // ── Entries ────────────────────────────────────────────────────────────────────────────────
+  // Each way into the selection gets a `start` node, and each `start` node is one named entry on
+  // the new flow card (the mirror of `end` nodes becoming named exits — see `getFlowEntries`).
+  // A way in is a (node, handle) pair, not just a node: an entry candidate that is itself a
+  // sub-flow can be entered at two of *its* entries, and those stay distinct.
+  //
+  // The exception is when everything outside the selection points in from the *same* place —
+  // same source node and same handle. Then the fan-out is the group's own internal business, so
+  // it needs one way in, not several: a single `start` fans out to every slot inside, and the
+  // duplicate parent edges collapse into one. Same origin means identical label/branch/exit, so
+  // collapsing them loses nothing; keeping the lowest id keeps it deterministic.
+  const entryNodeIds = findEntryCandidates(doc, flowId, ids);
+  const origins = new Set(incomingBoundary.map((e) => `${e.source}|${e.sourceHandle ?? ''}`));
+  const singleEntry = origins.size <= 1;
+
+  type EntrySlot = { target: string; targetHandle?: string; edges: DocEdge[] };
+  const slots: EntrySlot[] = [];
+  for (const target of entryNodeIds) {
+    const incoming = incomingBoundary.filter((e) => e.target === target);
+    if (incoming.length === 0) {
+      // A root of the selection nothing points at — still needs a way in.
+      slots.push({ target, edges: [] });
+      continue;
+    }
+    const byHandle = new Map<string, DocEdge[]>();
+    for (const e of incoming) {
+      const key = e.targetHandle ?? '';
+      const bucket = byHandle.get(key);
+      if (bucket) bucket.push(e);
+      else byHandle.set(key, [e]);
+    }
+    for (const [handle, edges] of byHandle) slots.push({ target, targetHandle: handle || undefined, edges });
+  }
+
+  const newStartNodes: DocNode[] = [];
+  const newStartEdges: DocEdge[] = [];
+  const startForEdge = new Map<string, string>();
+  const droppedEdgeIds = new Set<string>();
+
+  const makeStart = (name: string, y: number): string => {
+    const startNodeId = `start-${uid()}`;
+    newStartNodes.push({
+      id: startNodeId,
+      type: 'start',
+      flowId: newChildFlowId,
+      selected: false,
+      position: { x: minX - 260, y },
+      data: { type: 'start', name, description: '' } as TerminalData,
+    });
+    return startNodeId;
+  };
+
+  // The start edge inherits the target binding of the parent edge it replaces, so a slot on a
+  // nested sub-flow still enters at the right one of *its* entries.
+  const linkStart = (startNodeId: string, slot: EntrySlot) => {
+    newStartEdges.push({
+      id: `e-${uid()}`,
+      source: startNodeId,
+      target: slot.target,
+      targetHandle: slot.targetHandle,
+      flowId: newChildFlowId,
+      data: { entry: slot.edges[0]?.data?.entry },
+    });
+    slot.edges.forEach((e) => startForEdge.set(e.id, startNodeId));
+  };
+
+  if (singleEntry) {
+    const startNodeId = makeStart('Start', (minY + maxY) / 2);
+    slots.forEach((slot) => linkStart(startNodeId, slot));
+    incomingBoundary.slice(1).forEach((e) => droppedEdgeIds.add(e.id));
+  } else {
+    slots.forEach((slot, i) => {
+      // Named after how it's reached, mirroring the exit naming below. The label belongs to the
+      // *parent's* decision here, so unlike an exit the parent edge keeps its own label too.
+      const firstIn = slot.edges[0];
+      const sourceNode = firstIn ? doc.nodes.find((n) => n.id === firstIn.source) : undefined;
+      const edgeLabel = typeof firstIn?.label === 'string' ? firstIn.label : undefined;
+      const name = edgeLabel || sourceNode?.data.name || `Entry ${i + 1}`;
+      linkStart(makeStart(name, minY + i * 140), slot);
+    });
+  }
+
+  const startNameById = new Map(newStartNodes.map((n) => [n.id, (n.data as TerminalData).name]));
 
   const newEndNodes: DocNode[] = [];
   const newInternalEdges: DocEdge[] = [];
@@ -166,7 +241,10 @@ export function buildGroupedFlow(
       target: endNodeId,
       flowId: newChildFlowId,
       label: e.label,
-      data: { branch: e.data?.branch },
+      // `exit` rides along with `sourceHandle`: when the grouped node is itself a sub-flow, this
+      // edge still leaves a flow node and still names which of *its* exits it leaves from.
+      // `entry` is deliberately not carried — the target is an `end` node now.
+      data: { branch: e.data?.branch, exit: e.data?.exit },
     });
 
     rewrittenOriginals.set(e.id, {
@@ -182,15 +260,26 @@ export function buildGroupedFlow(
   const incomingIds = new Set(incomingBoundary.map((e) => e.id));
 
   const nodes = doc.nodes.map((n) => (selectedSet.has(n.id) ? { ...n, flowId: newChildFlowId, selected: false } : n));
-  nodes.push(newFlowNode, startNode, ...newEndNodes);
+  nodes.push(newFlowNode, ...newStartNodes, ...newEndNodes);
 
-  const edges = doc.edges.map((e) => {
-    if (internalIds.has(e.id)) return { ...e, flowId: newChildFlowId };
-    if (incomingIds.has(e.id)) return { ...e, target: newFlowNodeId, targetHandle: undefined };
+  const edges = doc.edges.flatMap((e) => {
+    if (droppedEdgeIds.has(e.id)) return [];
+    if (internalIds.has(e.id)) return [{ ...e, flowId: newChildFlowId }];
+    if (incomingIds.has(e.id)) {
+      const startId = startForEdge.get(e.id);
+      return [
+        {
+          ...e,
+          target: newFlowNodeId,
+          targetHandle: startId,
+          data: { ...e.data, entry: startId ? startNameById.get(startId) : undefined },
+        },
+      ];
+    }
     const rewritten = rewrittenOriginals.get(e.id);
-    return rewritten ?? e;
+    return [rewritten ?? e];
   });
-  edges.push(startEdge, ...newInternalEdges);
+  edges.push(...newStartEdges, ...newInternalEdges);
 
   // Any selected node that is itself a `flow` node has its own child flow's parentFlowId
   // still pointing at the outer flow — repoint it to the new child, or goToFlow()'s
@@ -211,16 +300,10 @@ export function canUngroupFlow(doc: WorkflowDoc, flowNodeId: string): GroupCheck
   if (!node || node.data.type !== 'flow') return { ok: false, reason: 'Select a single sub-flow node to ungroup.' };
 
   const childFlowId = (node.data as FlowRefData).childFlowId;
-  const startNodes = doc.nodes.filter((n) => n.flowId === childFlowId && n.data.type === 'start');
-  const startEdges = doc.edges.filter((e) => e.flowId === childFlowId && startNodes.some((s) => s.id === e.source));
-  const distinctTargets = new Set(startEdges.map((e) => e.target));
-
-  if (distinctTargets.size > 1) {
-    return { ok: false, reason: "This sub-flow has more than one entry path and can't be automatically ungrouped." };
-  }
+  const entries = getFlowEntries(doc, childFlowId);
 
   const hasIncomingParentEdges = doc.edges.some((e) => e.target === flowNodeId);
-  if (distinctTargets.size === 0 && hasIncomingParentEdges) {
+  if (entries.length === 0 && hasIncomingParentEdges) {
     return { ok: false, reason: 'This sub-flow has no entry node to reconnect its incoming connections to.' };
   }
 
@@ -233,13 +316,48 @@ export function buildUngroupedFlow(doc: WorkflowDoc, flowNodeId: string): Workfl
   const childFlowId = (flowNode.data as FlowRefData).childFlowId;
   const parentFlowId = flowNode.flowId;
 
-  const startNodes = doc.nodes.filter((n) => n.flowId === childFlowId && n.data.type === 'start');
-  const startEdges = doc.edges.filter((e) => e.flowId === childFlowId && startNodes.some((s) => s.id === e.source));
-  const entryNodeId = startEdges[0]?.target;
-
+  const entries = getFlowEntries(doc, childFlowId);
   const exits = getFlowExits(doc, childFlowId);
   const newDirectEdges: DocEdge[] = [];
   const consumedEdgeIds = new Set<string>();
+
+  // Entries, then exits: each side reconnects what the flow node stood between. The two are
+  // exact mirrors — for an entry the source metadata comes from the parent edge and the target
+  // metadata from the edge leaving the `start` node inside; for an exit it's the other way
+  // round. `exit`/`entry` are carried through on both, because either end may itself be a
+  // nested `flow` node whose named exit or entry has to survive the dissolve.
+  const entryIds = new Set(entries.map((en) => en.id));
+  const parentIncoming = doc.edges.filter((e) => e.target === flowNodeId);
+
+  entries.forEach((entry, i) => {
+    const internalFromStart = doc.edges.filter((e) => e.flowId === childFlowId && e.source === entry.id);
+    // An edge with no resolvable `targetHandle` predates named entries or was hand-edited; bind
+    // it to the first entry, the same fallback `normalizeDoc` uses on the exit side.
+    const parentEdgesToEntry = parentIncoming.filter(
+      (e) => e.targetHandle === entry.id || (i === 0 && (!e.targetHandle || !entryIds.has(e.targetHandle))),
+    );
+    internalFromStart.forEach((e) => consumedEdgeIds.add(e.id));
+    parentEdgesToEntry.forEach((e) => consumedEdgeIds.add(e.id));
+
+    for (const parentEdge of parentEdgesToEntry) {
+      for (const internalEdge of internalFromStart) {
+        newDirectEdges.push({
+          id: `e-${uid()}`,
+          source: parentEdge.source,
+          sourceHandle: parentEdge.sourceHandle,
+          target: internalEdge.target,
+          targetHandle: internalEdge.targetHandle,
+          flowId: parentFlowId,
+          label: parentEdge.label,
+          data: {
+            branch: parentEdge.data?.branch,
+            exit: parentEdge.data?.exit,
+            entry: internalEdge.data?.entry,
+          },
+        });
+      }
+    }
+  });
 
   for (const exit of exits) {
     const incomingToEnd = doc.edges.filter((e) => e.flowId === childFlowId && e.target === exit.id);
@@ -257,18 +375,20 @@ export function buildUngroupedFlow(doc: WorkflowDoc, flowNodeId: string): Workfl
           targetHandle: parentEdge.targetHandle,
           flowId: parentFlowId,
           label: internalEdge.label,
-          data: { branch: internalEdge.data?.branch },
+          data: {
+            branch: internalEdge.data?.branch,
+            exit: internalEdge.data?.exit,
+            entry: parentEdge.data?.entry,
+          },
         });
       }
     }
   }
 
   const endNodeIds = new Set(exits.map((e) => e.id));
-  const startNodeIds = new Set(startNodes.map((n) => n.id));
-  startEdges.forEach((e) => consumedEdgeIds.add(e.id));
 
   const remaining = doc.nodes.filter(
-    (n) => n.flowId === childFlowId && !startNodeIds.has(n.id) && !endNodeIds.has(n.id),
+    (n) => n.flowId === childFlowId && !entryIds.has(n.id) && !endNodeIds.has(n.id),
   ) as DocNode[];
 
   let positioned = remaining;
@@ -300,23 +420,19 @@ export function buildUngroupedFlow(doc: WorkflowDoc, flowNodeId: string): Workfl
     .filter((n) => n.id !== flowNodeId && n.flowId !== childFlowId)
     .concat(positioned);
 
-  // Every remaining outgoing edge from the flow node is one of the `parentEdgesFromExit`
-  // edges already gathered above, so it's already in `consumedEdgeIds`; nothing else can
-  // source from it. Edges that used to target the flow node are retargeted onto the
-  // resolved entry node instead — `canUngroupFlow` guarantees `entryNodeId` is defined
-  // whenever such an edge exists.
+  // The two loops above consumed every edge that touched the flow node or one of the child's
+  // terminals, replacing them with direct connections. What's left on the dissolved canvas is
+  // either an ordinary internal edge — which moves up to the parent — or one still pointing at a
+  // node that has just gone away, which is dropped rather than left dangling.
   const internalRemainingIds = new Set(remaining.map((n) => n.id));
   const edges = doc.edges
     .filter((e) => !consumedEdgeIds.has(e.id))
-    .map((e) => {
-      if (e.flowId === childFlowId && internalRemainingIds.has(e.source) && internalRemainingIds.has(e.target)) {
-        return { ...e, flowId: parentFlowId };
-      }
-      if (e.target === flowNodeId && entryNodeId) {
-        return { ...e, target: entryNodeId, targetHandle: undefined };
-      }
-      return e;
+    .filter((e) => {
+      if (e.source === flowNodeId || e.target === flowNodeId) return false;
+      if (e.flowId !== childFlowId) return true;
+      return internalRemainingIds.has(e.source) && internalRemainingIds.has(e.target);
     })
+    .map((e) => (e.flowId === childFlowId ? { ...e, flowId: parentFlowId } : e))
     .concat(newDirectEdges);
 
   return { ...doc, flows, nodes, edges };

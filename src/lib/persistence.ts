@@ -1,5 +1,6 @@
 import yaml from 'js-yaml';
 import type { WorkflowDoc, FrequencyCategory, Persona, Department, TaskData, FlowRefData, Flow, WFEdge } from '@/types';
+import { getFlowEntries } from './entries';
 import { getFlowExits } from './exits';
 
 function uid() {
@@ -92,6 +93,35 @@ export function normalizeDoc(doc: WorkflowDoc): WorkflowDoc {
     }
     return cached;
   };
+  const entryCache = new Map<string, ReturnType<typeof getFlowEntries>>();
+  const entriesFor = (childFlowId: string) => {
+    let cached = entryCache.get(childFlowId);
+    if (!cached) {
+      cached = getFlowEntries(docForExits, childFlowId);
+      entryCache.set(childFlowId, cached);
+    }
+    return cached;
+  };
+
+  /**
+   * The target-side mirror of the exit repair below: an edge entering a `flow` node binds to one
+   * of the child's `start` nodes by `targetHandle`, with `data.entry` as its label. Docs written
+   * before named entries have no handle at all and fall back to the first entry.
+   */
+  const bindEntry = (edge: WFEdge & { flowId: string }): WFEdge & { flowId: string } => {
+    const target = nodeById.get(edge.target);
+    if (target?.data.type !== 'flow') {
+      return edge.targetHandle ? { ...edge, targetHandle: undefined } : edge;
+    }
+    const entries = entriesFor((target.data as FlowRefData).childFlowId);
+    const bound = edge.targetHandle ? entries.find((x) => x.id === edge.targetHandle) : undefined;
+    if (bound) {
+      return edge.data?.entry === bound.label ? edge : { ...edge, data: { ...edge.data, entry: bound.label } };
+    }
+    const fallback = entries[0];
+    if (!fallback) return edge.targetHandle ? { ...edge, targetHandle: undefined } : edge;
+    return { ...edge, targetHandle: fallback.id, data: { ...edge.data, entry: fallback.label } };
+  };
 
   // A hand-edited or stale synced doc could inject a non-numeric or out-of-range value here;
   // clamp rather than trust it, since it feeds directly into the impact maths Claude runs.
@@ -102,7 +132,7 @@ export function normalizeDoc(doc: WorkflowDoc): WorkflowDoc {
     return clamped === raw ? edge : { ...edge, data: { ...edge.data, retryRatePct: clamped } };
   };
 
-  const edges = (doc.edges ?? []).map(clampRetryRate).map((edge) => {
+  const edges = (doc.edges ?? []).map(clampRetryRate).map(bindEntry).map((edge) => {
     const source = nodeById.get(edge.source);
     if (source?.data.type !== 'flow') {
       // Only decision branches legitimately carry a non-node handle id.

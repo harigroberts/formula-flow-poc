@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useWorkflowStore } from '@/store/workflowStore';
+import { getFlowEntries } from '@/lib/entries';
 import { getFlowExits } from '@/lib/exits';
 import { findLoops, findLoopByBackEdge } from '@/lib/cycles';
 import type { TaskData, FlowRefData, DecisionData, TerminalData } from '@/types';
@@ -416,6 +417,25 @@ export default function Inspector() {
                 <option value={NEW_OPTION}>＋ New department…</option>
               </select>
             </Field>
+            {(() => {
+              const childFlowId = (data as FlowRefData).childFlowId;
+              const entries = getFlowEntries(useWorkflowStore.getState().doc, childFlowId);
+              return (
+                <Field label="Entries">
+                  {entries.length > 0 ? (
+                    <div className={styles.exitList}>
+                      {entries.map((en) => (
+                        <div key={en.id} className={styles.exitItem}>{en.label}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className={styles.exitEmpty}>
+                      Add Start nodes inside this sub-flow to give it named entries.
+                    </span>
+                  )}
+                </Field>
+              );
+            })()}
             {(() => {
               const exits = getFlowExits(
                 useWorkflowStore.getState().doc,

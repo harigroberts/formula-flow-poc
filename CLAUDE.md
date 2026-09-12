@@ -74,7 +74,9 @@ The `Flow` type also carries an optional `companyName?: string` on the root flow
 - `task` — a unit of work; carries rich metadata (persona/owner, time, frequency, tools, pain points, knowledge-access, etc.)
 - `flow` — a reference to a child `Flow`; double-click to drill in. When the child flow has two or more
   `end` nodes the card grows a footer with one labelled **exit** row per end node, each with its own
-  connection point (see *Sub-flow exits* below)
+  connection point (see *Sub-flow exits* below). It grows a matching header of labelled **entry**
+  rows when the child has more than one `start` node (see *Sub-flow entries*). Sub-flows nest: a
+  `flow` node may sit on any canvas, including another sub-flow's
 - `decision` — a conditional gateway (diamond); outgoing edges carry `sourceHandle`/`label`/`data.branch` = `"yes"` or `"no"`. Also carries optional knowledge metadata for identifying ML/decision-support opportunities (see below).
 - `start` — pipeline entry point or sub-flow entry (doubles as entry node inside a child flow)
 - `end` — pipeline exit point or sub-flow exit (doubles as exit node inside a child flow). Inside a child
@@ -98,6 +100,38 @@ there's nothing worth labelling: a child flow with no `end` node at all, or exac
 is still the generic default ("Exit"), falls back to a single plain handle with no divider.
 `normalizeDoc()` backfills `sourceHandle`/`data.exit` on legacy edges and clears handles that no
 longer resolve.
+
+**Sub-flow entries** — the exact mirror of exits on the way in. A sub-flow can be entered at more
+than one point; its entries are **derived live** from the `start` nodes on the child canvas
+(`getFlowEntries()` in `lib/entries.ts`), y-ordered, never stored on `FlowRefData`. Each incoming
+edge of a `flow` node records which entry it arrives at:
+
+```ts
+WFEdge {
+  targetHandle: 'n-setup-start-rush'  // the child flow's `start` node id — the durable link
+  data: { entry: 'Rush order' }       // that node's name — refreshed when the start node is renamed
+}
+```
+
+Entries render as labelled rows with left-side handles, sharing the footer band with the exits
+(entries left, exits right) rather than taking a bar of their own above the title — same divider,
+same row height, no extra vertical space. The same rule as exits decides whether they appear at
+all: a child with no `start` node, or exactly one still called a generic default ("Start" or
+"Entry"), falls back to a single plain handle centred on the card's left edge, no divider. One asymmetry to keep in mind — an
+exit's branch label belongs to the *child's* decision, so grouping moves it onto the internal edge;
+an entry's label belongs to the *parent's* decision, so the parent edge keeps its own `label` and
+merely gains `targetHandle`/`data.entry`.
+
+**Multi-level sub-flows** — flows nest to any depth. A `flow` node is groupable like any other
+node, `Flow.parentFlowId` is re-pointed by both group and ungroup, and **Ungroup dissolves exactly
+one level**: only nodes whose `flowId` is the dissolved child move up, so a sub-flow inside it stays
+a sub-flow with its own canvas intact. Grouping decides how many ways in the new sub-flow needs by
+counting *origins* — the distinct `source`+`sourceHandle` pairs pointing into the selection. One
+origin means one `start` that fans out inside (and the duplicate parent edges collapse into one);
+several means one `start` per entry slot, named after the edge that reaches it. An entry slot is a
+(node, handle) pair rather than a node, so a nested sub-flow entered at two of *its own* entries
+keeps them distinct. Deleting a `flow` node removes its whole subtree — `removeNodes()` in the store
+walks it with `collectFlowIds()`.
 
 **Feedback loops** — the graph is not required to be a DAG. A loop happens when a decision's "No"
 branch (or any edge) points back at a node upstream of it — e.g. a payment-chase decision sending
@@ -163,6 +197,9 @@ src/
     seed.ts             — seed WorkflowDoc (Customer Onboarding example)
     persistence.ts      — exportJson, exportYaml, importFile, normalizeDoc
     cycles.ts           — findLoops / findAllLoops: derives feedback loops (Tarjan's SCC) from the graph
+    entries.ts          — getFlowEntries: a sub-flow's named entries, derived from its `start` nodes
+    exits.ts            — getFlowExits: a sub-flow's named exits, derived from its `end` nodes
+    grouping.ts         — group a selection into a child flow / ungroup one level back out
     edgeRouting.ts       — routeAroundNodes: obstacle-aware edge path (grid A* + smoothing), DOM-free/pure
     api.ts              — analyzeTasks / analyzeSubFlow / analyzeStrategic → the three /api/analyze* endpoints
     analysisRunner.ts   — chains the three analysis levels, feeding each into the next; emits progress per stage
@@ -207,10 +244,13 @@ server/
 
 - **Brand tokens** — all colours and fonts come from CSS custom properties defined in `src/theme.css`; don't hardcode hex values in components.
 - **State** — `useWorkflowStore` is the single source of truth. Components never hold their own copy of nodes/edges.
-- **Sub-flow exits** — derived from the child flow's `end` nodes via `getFlowExits()`, never duplicated onto
-  `FlowRefData`. Edges leaving a `flow` node carry `sourceHandle` (the end node's id) and `data.exit` (its
-  name); `FlowNode` must call `useUpdateNodeInternals()` whenever that handle set changes, and must select
-  from the store via `useShallow` over a flat string array so React Flow doesn't see a new snapshot each render.
+- **Sub-flow entries and exits** — derived from the child flow's `start`/`end` nodes via `getFlowEntries()`
+  / `getFlowExits()`, never duplicated onto `FlowRefData`. Edges leaving a `flow` node carry `sourceHandle`
+  (the end node's id) and `data.exit` (its name); edges entering one carry `targetHandle` (the start node's
+  id) and `data.entry`. `FlowNode` must call `useUpdateNodeInternals()` whenever either handle set changes,
+  and must select from the store via `useShallow` over a flat string array so React Flow doesn't see a new
+  snapshot each render. `targetHandle` is only ever a start-node id — no other node type declares a target
+  handle id — which is what lets the store prune edges by it.
 - **Feedback loops** — derived from topology via `findLoops()`/`findAllLoops()` in `lib/cycles.ts`, never
   stored as a flag on a node or edge; the only new stored field is `WFEdgeData.retryRatePct` on the edge
   that closes the loop. `Canvas.tsx` decorates matching edges with the `loopback` type (and every other
@@ -329,7 +369,7 @@ decision node able to leave it, which the prompt treats as a modelling error to 
 finding. The `id` field is what lets `canonical()` sort this array for the cache key the same way it
 already sorts `flows`/`nodes`/`edges` — see **What keeps the hit rate up** above.
 
-Level 2 additionally sends `{ flow, parentContext: { parentFlowName, exits }, taskFindings,
+Level 2 additionally sends `{ flow, parentContext: { parentFlowName, entries, exits }, taskFindings,
 childAnalyses }`, scoped to that one flow. Level 3 additionally sends `{ taskFindings,
 subFlowAnalyses }`. The findings fields are sent to the model but excluded from the cache key —
 see **Cache key scoping** above.

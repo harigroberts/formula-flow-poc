@@ -60,6 +60,12 @@ export interface WFEdgeData extends Record<string, unknown> {
    */
   exit?: string;
   /**
+   * The mirror of `exit` for an edge *entering* a `flow` node: the name of the child flow's
+   * `start` node it enters at. The durable link is the edge's `targetHandle` (= that start
+   * node's id); this is the label, kept in sync when the start node is renamed.
+   */
+  entry?: string;
+  /**
    * For an edge that closes a feedback loop (detected via `findLoops` in `lib/cycles.ts`,
    * never stored as a flag): the share of runs (0-100) that take it. A task inside the loop
    * therefore runs more than once per workflow run — see the impact-maths note in
