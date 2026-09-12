@@ -4,6 +4,7 @@ import type { NodeChange, EdgeChange, Connection } from '@xyflow/react';
 import type { WFNode, WFEdge, WFEdgeData, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData, FrequencyCategory, Persona, Department } from '@/types';
 import { seedDoc } from '@/lib/seed';
 import { normalizeDoc } from '@/lib/persistence';
+import { canGroupNodes, buildGroupedFlow, canUngroupFlow, buildUngroupedFlow, groupableNodeIds } from '@/lib/grouping';
 
 interface BreadcrumbEntry {
   flowId: string;
@@ -43,8 +44,10 @@ interface WorkflowState {
   addDecision: (position: { x: number; y: number }) => void;
   addStart: (position: { x: number; y: number }) => void;
   addEnd: (position: { x: number; y: number }) => void;
+  groupNodesIntoFlow: (nodeIds: string[]) => void;
   updateNodeData: (nodeId: string, data: Partial<WFNodeData>) => void;
   deleteNode: (nodeId: string) => void;
+  ungroupFlow: (flowNodeId: string) => void;
   setSelectedNode: (nodeId: string | null) => void;
   updateEdgeData: (edgeId: string, data: Partial<WFEdgeData>) => void;
   deleteEdge: (edgeId: string) => void;
@@ -288,6 +291,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ doc: { ...doc, nodes: [...doc.nodes, newNode] }, selectedNodeId: newNode.id });
   },
 
+  groupNodesIntoFlow: (nodeIds) => {
+    const { currentFlowId, doc } = get();
+    if (!canGroupNodes(doc, currentFlowId, nodeIds).ok) return;
+    const groupable = groupableNodeIds(doc, nodeIds);
+    const selected = doc.nodes.filter(n => groupable.includes(n.id));
+    const xs = selected.map(n => n.position.x);
+    const ys = selected.map(n => n.position.y);
+    const position = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+    const { doc: nextDoc, newFlowNodeId } = buildGroupedFlow(doc, currentFlowId, nodeIds, position);
+    set({ doc: nextDoc, selectedNodeId: newFlowNodeId, selectedEdgeId: null });
+  },
+
   updateNodeData: (nodeId, data) => {
     set((state) => {
       const nodes = state.doc.nodes.map(n => {
@@ -339,6 +354,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       );
       return { doc: { ...state.doc, nodes, edges }, selectedNodeId: null };
     });
+  },
+
+  ungroupFlow: (flowNodeId) => {
+    const { doc } = get();
+    if (!canUngroupFlow(doc, flowNodeId).ok) return;
+    const nextDoc = buildUngroupedFlow(doc, flowNodeId);
+    set({ doc: nextDoc, selectedNodeId: null, selectedEdgeId: null });
   },
 
   setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId, selectedEdgeId: null }),

@@ -205,6 +205,11 @@ export default function Canvas() {
           fitViewOptions={FIT_VIEW_OPTIONS}
           minZoom={0.2}
           deleteKeyCode="Delete"
+          // Default multiSelectionKeyCode is Meta (Mac) / Control (elsewhere) only — Shift is
+          // already bound to selectionKeyCode for drag-box select, so accepting it here too
+          // lets a Shift-click-per-node multi-select (the instinct most people reach for first)
+          // work alongside Cmd/Ctrl-click, without changing what Shift-drag already does.
+          multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
           proOptions={{ hideAttribution: true }}
         >
           <Background color="var(--color-light-gray)" gap={20} size={1} />

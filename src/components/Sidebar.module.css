@@ -83,6 +83,16 @@
   color: var(--color-dark);
 }
 
+.groupButton {
+  width: 100%;
+  text-align: center;
+}
+
+.groupButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .tips {
   list-style: none;
   display: flex;
