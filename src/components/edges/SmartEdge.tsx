@@ -16,12 +16,6 @@ function SmartEdge({
   style,
   markerStart,
   markerEnd,
-  label,
-  labelStyle,
-  labelShowBg,
-  labelBgStyle,
-  labelBgPadding,
-  labelBgBorderRadius,
 }: EdgeProps) {
   const obstacleMap = useContext(ObstaclesContext);
 
@@ -38,28 +32,15 @@ function SmartEdge({
     : null;
 
   let path: string;
-  let labelX: number;
-  let labelY: number;
   if (route) {
-    ({ path, labelX, labelY } = route);
+    ({ path } = route);
   } else {
-    const [p, lx, ly] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
-    path = p;
-    labelX = lx;
-    labelY = ly;
+    [path] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
   }
 
   return (
     <BaseEdge
       path={path}
-      labelX={labelX}
-      labelY={labelY}
-      label={label}
-      labelStyle={labelStyle}
-      labelShowBg={labelShowBg}
-      labelBgStyle={labelBgStyle}
-      labelBgPadding={labelBgPadding}
-      labelBgBorderRadius={labelBgBorderRadius}
       markerStart={markerStart}
       markerEnd={markerEnd}
       style={style}
