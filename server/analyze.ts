@@ -7,12 +7,12 @@ import { SUBFLOW_SCHEMA, STRATEGIC_SCHEMA } from './schemas';
 import { sha256, type CacheLevel } from './cache';
 import type { AnalysisResult, StrategicAnalysis, SubFlowAnalysis } from '../src/types';
 
-const client = new Anthropic();
+export const client = new Anthropic();
 
 /** Level 1 — high volume, node-by-node. Cheap and fast. */
 const TASK_MODEL = 'claude-haiku-4-5';
 /** Levels 2 & 3 — integrative reasoning over a whole graph. Worth the stronger model. */
-const INTEGRATION_MODEL = 'claude-opus-5';
+export const INTEGRATION_MODEL = 'claude-opus-5';
 
 /**
  * Two cache breakpoints: the shared context is identical across every level, so the
@@ -26,9 +26,17 @@ function systemBlocks(levelPrompt: string): Anthropic.TextBlockParam[] {
   ];
 }
 
-function logUsage(label: string, usage: Anthropic.Usage) {
+/** Structural, so both `Anthropic.Usage` and the beta namespace's `BetaUsage` fit. */
+interface UsageLike {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+}
+
+export function logUsage(label: string, usage: UsageLike, scope = 'analyze') {
   console.log(
-    `[analyze:${label}] in=${usage.input_tokens} out=${usage.output_tokens} ` +
+    `[${scope}:${label}] in=${usage.input_tokens} out=${usage.output_tokens} ` +
       `cache_read=${usage.cache_read_input_tokens ?? 0} cache_write=${usage.cache_creation_input_tokens ?? 0}`,
   );
 }

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { canonical } from '../src/lib/canonical';
 
 /**
  * Content-addressed cache for analysis results, backed by the `analysis_cache` table.
@@ -30,40 +31,6 @@ const EXCLUDE_FROM_KEY: Record<CacheLevel, string[]> = {
   subflow: ['taskFindings', 'childAnalyses'],
   strategic: ['taskFindings', 'subFlowAnalyses'],
 };
-
-function hasId(v: unknown): v is { id: unknown } {
-  return typeof v === 'object' && v !== null && 'id' in v;
-}
-
-/**
- * Stable form of a payload for hashing: object keys sorted, and arrays of id-bearing
- * objects sorted by id.
- *
- * Both matter. The store rebuilds arrays as `[...otherNodes, ...updated]` on every change,
- * so `doc.nodes` reorders during ordinary editing, and `updateNodeData` spreads patches over
- * existing data so key order drifts too. Hashing the raw JSON would miss constantly.
- *
- * Plain string arrays are left alone — `tools` / `inputs` / `outputs` and `parentContext.entries`
- * / `parentContext.exits` carry meaning in their order.
- */
-export function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    const items = value.map(canonical);
-    if (items.length > 1 && items.every(hasId)) {
-      return [...items].sort((a, b) =>
-        String((a as { id: unknown }).id).localeCompare(String((b as { id: unknown }).id)),
-      );
-    }
-    return items;
-  }
-  if (typeof value === 'object' && value !== null) {
-    const entries = Object.keys(value as Record<string, unknown>)
-      .sort()
-      .map((k) => [k, canonical((value as Record<string, unknown>)[k])] as const);
-    return Object.fromEntries(entries);
-  }
-  return value;
-}
 
 export function sha256(input: string): string {
   return createHash('sha256').update(input).digest('hex');

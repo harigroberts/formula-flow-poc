@@ -84,10 +84,38 @@ function serializeLoop(doc: WorkflowDoc, loop: Loop) {
   };
 }
 
+/**
+ * The whole graph under the root plus the org-wide registries — what level 1, level 3 and
+ * the chat all start from. Key order is irrelevant to the cache (`canonical()` sorts), but
+ * the slimming is not; see `slimNode`.
+ */
+export function graphPayload(doc: WorkflowDoc) {
+  const flowIds = collectFlowIds(doc, doc.rootFlowId);
+  return {
+    flows: doc.flows.filter((f) => flowIds.includes(f.id)),
+    nodes: doc.nodes.filter((n) => flowIds.includes(n.flowId)).map(slimNode),
+    edges: doc.edges.filter((e) => flowIds.includes(e.flowId)).map(slimEdge),
+    loops: flowIds.flatMap((id) => findLoops(doc, id)).map((l) => serializeLoop(doc, l)),
+    frequencies: doc.frequencies,
+    personas: doc.personas,
+    departments: doc.departments,
+  };
+}
+
 export interface Cacheable<T> {
   result: T;
   /** True when the server served this from `analysis_cache` rather than calling the model. */
   cached: boolean;
+}
+
+/** The server replies `{ error: string }` on failure; surface that rather than the raw JSON. */
+export async function errorMessage(res: Response): Promise<string> {
+  const text = await res.text();
+  try {
+    return (JSON.parse(text) as { error?: string }).error ?? text;
+  } catch {
+    return text; // not JSON — use the raw body
+  }
 }
 
 async function post<T>(path: string, payload: unknown, fresh: boolean): Promise<Cacheable<T>> {
@@ -97,17 +125,7 @@ async function post<T>(path: string, payload: unknown, fresh: boolean): Promise<
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    // The server replies { error: string }; surface that rather than the raw JSON.
-    let message = text;
-    try {
-      message = (JSON.parse(text) as { error?: string }).error ?? text;
-    } catch {
-      /* not JSON — use the raw body */
-    }
-    throw new Error(message);
-  }
+  if (!res.ok) throw new Error(await errorMessage(res));
 
   return {
     result: (await res.json()) as T,
@@ -120,21 +138,7 @@ export async function analyzeTasks(
   doc: WorkflowDoc,
   fresh = false,
 ): Promise<Cacheable<AnalysisResult>> {
-  const flowIds = collectFlowIds(doc, doc.rootFlowId);
-
-  return post<AnalysisResult>(
-    '/api/analyze',
-    {
-      flows: doc.flows.filter((f) => flowIds.includes(f.id)),
-      nodes: doc.nodes.filter((n) => flowIds.includes(n.flowId)).map(slimNode),
-      edges: doc.edges.filter((e) => flowIds.includes(e.flowId)).map(slimEdge),
-      loops: flowIds.flatMap((id) => findLoops(doc, id)).map((l) => serializeLoop(doc, l)),
-      frequencies: doc.frequencies,
-      personas: doc.personas,
-      departments: doc.departments,
-    },
-    fresh,
-  );
+  return post<AnalysisResult>('/api/analyze', graphPayload(doc), fresh);
 }
 
 /**
@@ -184,21 +188,13 @@ export async function analyzeStrategic(
   subFlowAnalyses: SubFlowAnalysis[],
   fresh = false,
 ): Promise<Cacheable<StrategicAnalysis>> {
-  const flowIds = collectFlowIds(doc, doc.rootFlowId);
-
   return post<StrategicAnalysis>(
     '/api/analyze/strategic',
     {
-      flows: doc.flows.filter((f) => flowIds.includes(f.id)),
-      nodes: doc.nodes.filter((n) => flowIds.includes(n.flowId)).map(slimNode),
-      edges: doc.edges.filter((e) => flowIds.includes(e.flowId)).map(slimEdge),
-      loops: flowIds.flatMap((id) => findLoops(doc, id)).map((l) => serializeLoop(doc, l)),
+      ...graphPayload(doc),
       // Sent to the model, but excluded from the cache key server-side — see EXCLUDE_FROM_KEY.
       taskFindings: taskResult?.findings ?? [],
       subFlowAnalyses,
-      frequencies: doc.frequencies,
-      personas: doc.personas,
-      departments: doc.departments,
     },
     fresh,
   );

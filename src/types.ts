@@ -235,3 +235,53 @@ export interface MultiLevelAnalysis {
    */
   cached: Record<string, boolean>;
 }
+
+/* ------------------------------------------------------------------ chat */
+
+/** One turn of the chat about the analysis. Text only — thinking blocks are never sent back. */
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * What the chat thread is built on: the graph as it was analysed and the three levels of
+ * output. Frozen per analysis run — the server turns it into the cached prefix of every
+ * chat request, so it must not change between turns.
+ */
+export interface ChatContext {
+  workflow: unknown;
+  analysis: Omit<MultiLevelAnalysis, 'cached'>;
+}
+
+export interface ChatUsage {
+  input: number;
+  output: number;
+  /** Prompt tokens served from Anthropic's prompt cache on this turn. */
+  cacheRead: number;
+  /** Prompt tokens written to the prompt cache on this turn. */
+  cacheWrite: number;
+}
+
+/** A turn as the UI holds it — and as `chat_conversations.messages` stores it. */
+export interface ChatMessage extends ChatTurn {
+  /** Set on an assistant reply once it has finished streaming. */
+  usage?: ChatUsage;
+  /** The reply was stopped or failed partway; the text so far is kept. */
+  interrupted?: boolean;
+}
+
+/** One row of the conversation list — just enough to render the sidebar. */
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  /** Fingerprint of the analysed workflow the conversation was about — see `workflowHash()`. */
+  workflowHash: string;
+  updatedAt: string;
+}
+
+/** Streamed by `POST /api/chat`, one JSON object per line. */
+export type ChatEvent =
+  | { type: 'text'; text: string }
+  | { type: 'done'; stopReason: string | null; usage: ChatUsage }
+  | { type: 'error'; error: string };

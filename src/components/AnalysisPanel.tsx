@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useWorkflowStore } from '@/store/workflowStore';
 import { orderSubFlows, type AnalysisStage } from '@/lib/analysisRunner';
+import type { ChatController } from '@/lib/useChat';
+import ChatTab from './ChatTab';
 import type {
   AnalysisDepth,
   AnalysisFinding,
@@ -18,8 +20,8 @@ const confidenceColor: Record<string, string> = {
   low: 'var(--color-mid-gray)',
 };
 
-/** One tab per analysis level — the tab id doubles as the level id. */
-type Tab = AnalysisDepth;
+/** One tab per analysis level — the tab id doubles as the level id — plus the chat. */
+type Tab = AnalysisDepth | 'chat';
 
 const LEVEL_ORDER: Record<AnalysisDepth, number> = { tasks: 1, subflows: 2, strategic: 3 };
 const STAGE_ORDER: Record<AnalysisStage, number> = {
@@ -32,7 +34,7 @@ const STAGE_ORDER: Record<AnalysisStage, number> = {
 
 /** Where this level stands: still queued, in flight, finished, or outside the chosen depth. */
 function levelState(
-  tab: Tab,
+  tab: AnalysisDepth,
   analysis: MultiLevelAnalysis,
   stage: AnalysisStage,
 ): 'pending' | 'running' | 'ready' | 'not-run' {
@@ -338,10 +340,17 @@ interface AnalysisPanelProps {
   analysis: MultiLevelAnalysis | null;
   stage: AnalysisStage;
   error: string | null;
+  chat: ChatController;
   onClose: () => void;
 }
 
-export default function AnalysisPanel({ analysis, stage, error, onClose }: AnalysisPanelProps) {
+export default function AnalysisPanel({
+  analysis,
+  stage,
+  error,
+  chat,
+  onClose,
+}: AnalysisPanelProps) {
   const [tab, setTab] = useState<Tab>('tasks');
   // Once the user picks a tab themselves, stop auto-advancing.
   const pinned = useRef(false);
@@ -361,9 +370,11 @@ export default function AnalysisPanel({ analysis, stage, error, onClose }: Analy
     { id: 'tasks', label: 'Tasks', count: analysis?.tasks?.findings.length },
     { id: 'subflows', label: 'Sub-flows', count: analysis?.subFlows.length },
     { id: 'strategic', label: 'Strategy' },
+    { id: 'chat', label: 'Chat' },
   ];
 
-  const state = analysis ? levelState(tab, analysis, stage) : 'pending';
+  // Null on the chat tab, which has no level of its own — so none of the level views render.
+  const state = tab !== 'chat' && analysis ? levelState(tab, analysis, stage) : null;
 
   return (
     <div className={styles.overlay}>
@@ -377,7 +388,14 @@ export default function AnalysisPanel({ analysis, stage, error, onClose }: Analy
 
         <div className={styles.tabs} role="tablist">
           {tabs.map((t) => {
-            const s = analysis ? levelState(t.id, analysis, stage) : 'pending';
+            const s =
+              t.id === 'chat'
+                ? chat.busy
+                  ? 'running'
+                  : 'ready'
+                : analysis
+                  ? levelState(t.id, analysis, stage)
+                  : 'pending';
             return (
               <button
                 key={t.id}
@@ -402,7 +420,7 @@ export default function AnalysisPanel({ analysis, stage, error, onClose }: Analy
           </div>
         )}
 
-        {!analysis && !error && <Spinner label="Starting analysis…" />}
+        {!analysis && !error && tab !== 'chat' && <Spinner label="Starting analysis…" />}
 
         {analysis && state === 'not-run' && (
           <Placeholder>
@@ -442,6 +460,17 @@ export default function AnalysisPanel({ analysis, stage, error, onClose }: Analy
               ))}
           </>
         )}
+
+        {tab === 'chat' &&
+          (chat.available ? (
+            <ChatTab chat={chat} />
+          ) : (
+            <Placeholder>
+              {error
+                ? 'Chat needs a completed analysis — run it again to chat about the results.'
+                : 'Chat opens once the analysis has finished.'}
+            </Placeholder>
+          ))}
       </div>
     </div>
   );

@@ -26,6 +26,7 @@ Browser (Vite/React)
   ├─ /api/analyze{,/subflow,/strategic}  →  Express proxy (server/, port 8787)
   │                        └─ Anthropic API  →  claude-haiku-4-5  (level 1: per-task)
   │                                          →  claude-opus-5     (levels 2-3: sub-flow, strategic)
+  ├─ /api/chat{,/prime}  →  Express proxy  →  Anthropic API  →  claude-opus-5 (chat about the analysis, streamed)
   └─ Supabase JS client  →  Supabase (eu-west-1, project xmqgxrspgtpamrwackdl)
                                  ├─ REST  →  workflows table (JSONB doc storage)
                                  └─ Realtime  →  postgres_changes on workflows
@@ -203,7 +204,11 @@ src/
     edgeRouting.ts       — edgePath: right-angled edge geometry, routed around nodes (grid A* + smoothing), DOM-free/pure
     api.ts              — analyzeTasks / analyzeSubFlow / analyzeStrategic → the three /api/analyze* endpoints
     analysisRunner.ts   — chains the three analysis levels, feeding each into the next; emits progress per stage
-    useAnalysis.ts      — hook owning the multi-level run (result, stage, error); kept out of the store on purpose
+    useAnalysis.ts      — hook owning the multi-level run (result, stage, error, analysedDoc); kept out of the store on purpose
+    chat.ts             — buildChatContext (frozen per run), primeChat, streamChat (NDJSON reader) → /api/chat*
+    useChat.ts          — hook owning the thread on screen + the project's saved conversations; lives in App, out of the store
+    conversations.ts    — workflowHash + chat_conversations CRUD (list / load / create / saveMessages), browser → Supabase
+    canonical.ts        — canonical(): the key-sorted form shared by server (cache key, chat prefix) and browser (workflow hash)
     supabase.ts         — Supabase client (null when VITE_SUPABASE_* vars absent; check supabaseConfigured before use)
     useSupabaseSync.ts  — sync hook: debounced writes, realtime subscription, echo prevention, localStorage persistence
   components/
@@ -212,7 +217,9 @@ src/
     Inspector.tsx       — edit metadata of the selected node; collapses to a thin rail when nothing is selected
     Breadcrumbs.tsx     — flow navigation bar
     Toolbar.tsx         — export/import + Assumptions + Analyse triggers + sync toggle (hidden when Supabase not configured)
-    AnalysisPanel.tsx   — slide-over with a tab per level (Tasks / Sub-flows / Strategy), filling in as each pass lands
+    AnalysisPanel.tsx   — slide-over with a tab per level (Tasks / Sub-flows / Strategy), filling in as each pass lands, plus a Chat tab
+    ChatTab.tsx         — the Chat tab: conversation sidebar (stale ones red), message list, streaming reply,
+                           composer or read-only banner, per-reply prompt-cache readout
     AnalysisDepthDialog.tsx — modal shown on "Analyse": pick how deep to run (tasks / +sub-flows / +strategic)
     SettingsPanel.tsx   — "Assumptions" slide-over: edit frequency counts & persona capacity
     SyncPanel.tsx       — "Cloud Sync" slide-over: status, sync ID copy/share, join-by-ID, danger zone
@@ -231,13 +238,15 @@ src/
 server/
   index.ts              — Express app; POST /api/analyze{,/subflow,/strategic}, GET /api/health
   analyze.ts            — the three Anthropic SDK calls, prompt caching, JSON parsing, LEVELS descriptor
-  cache.ts              — analysis result cache: canonical hashing + Supabase read/write
+  chat.ts               — the chat thread: prompt-cache layout, prime call, streamed turns
+  cache.ts              — analysis result cache: cache-key hashing (via src/lib/canonical.ts) + Supabase read/write
   schemas.ts            — JSON schemas constraining the level-2 / level-3 structured outputs
   prompts/
     shared.ts           — SHARED_CONTEXT: node vocabulary, registries, product catalogue (all three levels)
     task.ts             — TASK_PROMPT (level 1, per-node)
     subflow.ts          — SUBFLOW_PROMPT (level 2, one sub-flow as an integrated whole)
     strategic.ts        — STRATEGIC_PROMPT (level 3, the whole workflow as one system)
+    chat.ts             — CHAT_PROMPT (conversation about the three-level analysis)
 ```
 
 ## Conventions
@@ -322,12 +331,47 @@ server/
   the cache miss constantly:
   1. `slimNode` / `slimEdge` in `lib/api.ts` — React Flow writes `selected` onto a node or edge when you click
      it, so without slimming, merely selecting something on the canvas changes the payload.
-  2. `canonical()` in `cache.ts` sorts object keys and id-bearing arrays — the store rebuilds arrays as
+  2. `canonical()` (`src/lib/canonical.ts`, used by `cache.ts`) sorts object keys and id-bearing arrays — the store rebuilds arrays as
      `[...otherNodes, ...updated]` on every change, so `doc.nodes` reorders during ordinary editing.
   3. `parentContext.exits` must come from `getFlowExits()` (y-ordered, id tie-break), never from filtering
      `doc.nodes` directly — that gives arbitrary store order, which is both wrong for the model and unstable.
   Plain string arrays (`tools`, `inputs`, `outputs`, `exits`) are deliberately *not* sorted; their order means
   something.
+- **Chat prompt caching** — the chat is one thread whose prefix is laid out so each stage is cached once
+  and then only read (`server/chat.ts`). The four breakpoints — the API maximum — are all spoken for:
+  ```
+  system     SHARED_CONTEXT, CHAT_PROMPT ◆            ◆ = cache_control { ephemeral, ttl: '1h' }
+  user       the analysed workflow (JSON) ◆           ← written by /api/chat/prime, before any chat input
+  assistant  the three-level analysis (JSON) ◆        ← written on the first chat turn
+  user/assistant …                                    ← text only, append-only
+  user       latest message ◆                         ← moving tail
+  ```
+  The analysis turn can't be cached by the prime: Opus 5 rejects a request ending on an assistant turn, so
+  it joins the cached prefix only once a user message follows it. Its breakpoint is also what lets "New
+  conversation" start a fresh thread that still reads the workflow and the analysis from cache. Things that
+  break it: anything varying `model` / `thinking` / `effort` / `betas` / `fallbacks` / system between calls
+  (they're pinned in `BASE`, shared by the prime and every turn); editing or dropping earlier turns; building
+  the context from the live canvas instead of `useAnalysis().analysedDoc` (the snapshot the run used). The
+  context turns are serialised with `canonical()` so the bytes can't drift. `useChat` awaits an in-flight
+  prime before the first turn, because a cache entry is only readable once the writing request has
+  responded. Verify with the `[chat:prime]` / `[chat:turn]` log lines, or the "context from cache" readout
+  under each reply: prime writes the workflow; turn 1 reads it and writes the analysis; later turns read
+  everything and write only the last exchange. Chat never touches `doc`, sync, export or `analysis_cache`.
+- **Saved conversations** — chat threads are saved per project, where the project is the **sync ID**
+  (`useSupabaseSync().workflowId`); with sync off nothing is saved and the sidebar says so. The browser writes
+  `chat_conversations` directly (`lib/conversations.ts`), like the `workflows` sync; a failed save shows a muted
+  warning and never breaks the chat. Each conversation stores `workflow_hash` = sha256 of
+  `JSON.stringify(canonical(graphPayload(analysedDoc)))` — exactly the bytes the server sends as the cached
+  workflow turn, so canvas geometry doesn't count but any node/edge/registry edit does. A conversation is
+  **stale** — red in the sidebar, read-only when opened — when its hash differs from the workflow the *current
+  analysis* ran on, not the live canvas: that is what the chat actually uses as input, so editing only makes
+  conversations stale once the analysis is re-run. A matching conversation reopens against its **own stored
+  context**, so it carries on with the analysis it discussed even if the same workflow has since been
+  re-analysed differently; the hash comparison is on the workflow only. `jsonb` reorders keys on storage, which
+  is harmless because the server canonicalises the context before building the prompt — a resumed thread still
+  reads the prompt cache. The row is inserted on a thread's first completed (or partially-kept) reply with an id
+  chosen up front, later turns update `messages` only, and saves are chained so an update never overtakes its
+  insert. A partial reply is saved even if the user switches conversation mid-stream.
 - **CSS Modules** — each component has a co-located `.module.css` file; global utility classes (`.btn-primary`, `.btn-secondary`, `.btn-ghost`) are in `theme.css`.
 - **Supabase sync** — opt-in via "Sync off/on" toggle in the Toolbar. The hook (`useSupabaseSync`) debounces writes by 800 ms and uses a per-tab `sessionId` (in `sessionStorage`) to suppress echo updates. The workflow UUID is persisted in `localStorage('ff_workflow_id')` so the browser reconnects on refresh. JSON/YAML export is unaffected by sync state.
 - **Supabase DB** — project `formula_flow_poc` (ID `xmqgxrspgtpamrwackdl`, region `eu-west-1`). Two tables, both
@@ -338,6 +382,11 @@ server/
     `prompt_hash TEXT`, `input JSONB`, `output JSONB`, `hit_count INT`, timestamps. Plus a
     `bump_cache_hit(key)` SQL function, because supabase-js can't express `hit_count = hit_count + 1` directly.
     No realtime. Safe to `truncate` at any time — it only costs the next run its cache hits.
+  - `chat_conversations` — `id UUID` (assigned by the browser), `workflow_id UUID` → `workflows.id` **on delete
+    cascade** (the sync ID is the project), `workflow_hash TEXT`, `title TEXT`, `context JSONB` (the `ChatContext`
+    the thread is built on), `messages JSONB` (`ChatMessage[]`), timestamps; `updated_at` is bumped by
+    `trg_chat_conversations_updated_at` (the same `set_updated_at()` as `workflows`). Indexed on
+    `(workflow_id, updated_at desc)`. No realtime. Unlike `analysis_cache` this is user data — don't truncate it.
 
 ## Analysis API contract
 
@@ -465,6 +514,25 @@ the verdict carries the explicit reason no integrated approach beats task-by-tas
 `initiatives` is empty when `improvesOnLowerLevels` is `false`. Both levels report
 `incrementalMonthlyTimeSaved` — the gain **beyond** the levels below, never a re-count of them.
 
+## Chat API contract
+
+The Chat tab talks to Claude about a finished analysis. Both routes take the same `context`, built once
+per run by `buildChatContext()` in `lib/chat.ts` and re-sent unchanged every turn (see **Chat prompt
+caching** above):
+
+```json
+{ "context": { "workflow": <graphPayload(analysedDoc)>, "analysis": { "depth", "tasks", "subFlows", "strategic" } } }
+```
+
+- **`POST /api/chat/prime`** — `{ context }` → `{ ok: true }`. A `max_tokens: 0` call that writes the
+  system + workflow prefix to the prompt cache. Fired when the Chat tab is first opened for a run.
+- **`POST /api/chat`** — `{ context, messages: ChatTurn[] }`, where `messages` alternates starting and
+  ending with `user` (400 otherwise). Streams `application/x-ndjson`, one `ChatEvent` per line:
+  `{ type: 'text', text }` per delta, then `{ type: 'done', stopReason, usage: { input, output, cacheRead,
+  cacheWrite } }`, or `{ type: 'error', error }` in-band once streaming has begun. Closing the connection
+  aborts generation. Uses `CHAT_MODEL` (= `INTEGRATION_MODEL`) at `effort: 'medium'` with adaptive thinking
+  and server-side refusal fallback (`fallbacks: 'default'`).
+
 ## Future stages
 
 1. ~~**Supabase persistence**~~ — **Done.** Opt-in cloud sync via `useSupabaseSync`; real-time collaborative editing via shared UUID; `workflows` table in Supabase.
@@ -472,5 +540,8 @@ the verdict carries the explicit reason no integrated approach beats task-by-tas
 3. ~~**Task-node knowledge-access metadata**~~ — **Done (knowledge-access / "blue" branch).** `inputAccessibility` + Tier-2 fields; RAG-KB/info-gap badge; cross-graph pass in the prompt. The "purple" judgement-type branch (`judgementType`, automation/ML signals) remains to do.
 4. ~~**Multi-level analysis**~~ — **Done.** Sub-flow and whole-workflow strategic passes chained on top of the per-task pass, each taking the level(s) below as input, with "no improvement over the level below" as an explicit first-class result. Results are cached in Supabase by a content hash of each level's own graph slice, so an unchanged workflow re-analyses in well under a second.
 5. ~~**Feedback loops**~~ — **Done.** The graph no longer has to be a DAG; `findLoops()` derives strongly-connected components live, flags any loop with no decision node able to exit it (canvas + toolbar chip), and a `retryRatePct` on the closing edge lets the analysis scale a looped task's time-saved figure by its expected number of passes.
-6. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
-7. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.
+6. ~~**Chat about the analysis**~~ — **Done.** A Chat tab beside the three levels streams a conversation
+   with Opus over the analysed workflow and its results, laid out as a prompt-cached thread so every turn
+   after the first reads the workflow and the analysis from cache.
+7. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
+8. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.

@@ -3,6 +3,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { supabaseConfigured } from '@/lib/supabase';
 import { useSupabaseSync } from '@/lib/useSupabaseSync';
 import { useAnalysis } from '@/lib/useAnalysis';
+import { useChat } from '@/lib/useChat';
 import Toolbar from '@/components/Toolbar';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Sidebar from '@/components/Sidebar';
@@ -16,7 +17,13 @@ import type { AnalysisDepth } from '@/types';
 import styles from './App.module.css';
 
 export default function App() {
-  const { analysis, stage, error: analysisError, run: runAnalysis } = useAnalysis();
+  const {
+    analysis,
+    analysedDoc,
+    stage,
+    error: analysisError,
+    run: runAnalysis,
+  } = useAnalysis();
 
   const [showDepthDialog, setShowDepthDialog] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -35,6 +42,10 @@ export default function App() {
     disableSync,
     importById,
   } = useSupabaseSync(syncEnabled);
+
+  // Here rather than in the panel, so the conversation survives closing and reopening it. The
+  // sync ID is the project conversations are saved under — none while sync is off.
+  const chat = useChat(analysedDoc, analysis, stage, analysisError, workflowId);
 
   const handleToggleSync = () => {
     if (syncEnabled) {
@@ -88,6 +99,7 @@ export default function App() {
             analysis={analysis}
             stage={stage}
             error={analysisError}
+            chat={chat}
             onClose={() => setShowAnalysis(false)}
           />
         )}
