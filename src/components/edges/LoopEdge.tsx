@@ -71,7 +71,7 @@ function LoopEdge({
     }));
   }
 
-  const color = guarded ? 'var(--color-mustard)' : 'var(--color-error)';
+  const color = guarded ? 'var(--warning-ink)' : 'var(--color-error)';
 
   return (
     <>

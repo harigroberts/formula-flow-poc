@@ -136,7 +136,7 @@
 
 .exitItem {
   font-size: 12px;
-  color: var(--color-blue);
+  color: var(--info-ink);
   padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -179,7 +179,7 @@
 .textarea:focus,
 .select:focus {
   border-color: var(--color-orange);
-  box-shadow: 0 0 0 3px rgba(232, 118, 58, 0.18), var(--shadow-inset);
+  box-shadow: var(--focus-ring), var(--shadow-inset);
 }
 
 .textarea {

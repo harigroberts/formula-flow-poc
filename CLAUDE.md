@@ -269,7 +269,7 @@ server/
 - **Edge routing** — every non-loop edge renders as `SmartEdge` (`components/edges/SmartEdge.tsx`), the
   `loopback` back-edge as `LoopEdge`; both get their geometry from the single `edgePath()`
   (`lib/edgeRouting.ts`), so **every edge is one visual language** — right-angled legs with radiused
-  corners — and the three edge states differ only in stroke (loops dashed + mustard/plum with a retry
+  corners — and the three edge states differ only in stroke (loops dashed + mustard/crimson with a retry
   pill, the self-loop arc in `LoopEdge` being the one shape the router can't express). `edgePath()` is a
   two-tier ladder: draw the default orthogonal path (`orthogonalWaypoints()`, mid-split between the two
   handles) when it's clear, else search around the obstacles with A*, else fall back to that same default.

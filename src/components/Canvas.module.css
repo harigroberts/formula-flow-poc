@@ -5,7 +5,7 @@
 }
 
 .canvas :global(.react-flow__background) {
-  background: var(--color-linen);
+  background: var(--canvas);
 }
 
 .canvas :global(.react-flow__controls) {
@@ -29,21 +29,27 @@
 .canvas :global(.react-flow__minimap) {
   border-radius: var(--radius-sm);
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
+  background: var(--color-paper);
+}
+
+.canvas :global(.react-flow__minimap svg) {
+  background: var(--color-paper);
 }
 
 .canvas :global(.react-flow__edge-path) {
-  stroke: var(--color-mid-gray);
-  stroke-width: 1.5;
+  stroke: var(--edge);
+  stroke-width: 1.75;
 }
 
 .canvas :global(.react-flow__edge.selected .react-flow__edge-path) {
   stroke: var(--color-orange);
+  stroke-width: 2.25;
 }
 
 .canvas :global(.react-flow__handle) {
-  background: var(--color-mid-gray);
-  border: 2px solid var(--color-linen);
+  background: var(--edge);
+  border: 2px solid var(--canvas);
   width: 10px;
   height: 10px;
 }

@@ -19,8 +19,8 @@
 }
 
 .start {
-  background: var(--color-green);
-  border-color: var(--color-green);
+  background: var(--success-strong);
+  border-color: var(--success-strong);
 }
 
 .end {
@@ -29,7 +29,7 @@
 }
 
 .selected {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-green) 30%, transparent), var(--shadow-md) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-strong) 30%, transparent), var(--shadow-md) !important;
 }
 
 .end.selected {

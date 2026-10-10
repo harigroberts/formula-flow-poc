@@ -32,7 +32,7 @@ function TaskNode({ data, selected }: NodeProps) {
           </span>
         )}
         {d.humanMinutesPerRun !== undefined && (
-          <span className={styles.badge}>{d.humanMinutesPerRun}m</span>
+          <span className={`${styles.badge} ${styles.badgeMeasure}`}>{d.humanMinutesPerRun}m</span>
         )}
         {knowledge && (
           <span className={`${styles.badge} ${styles[knowledge.variant as 'badgeKnowRag' | 'badgeKnowGap']}`}>

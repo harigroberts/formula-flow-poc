@@ -45,7 +45,7 @@
 }
 
 .crumb:not(.active):hover {
-  color: var(--color-orange);
+  color: var(--accent-ink);
   background: var(--accent-soft);
 }
 

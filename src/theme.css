@@ -10,13 +10,14 @@
   --color-light-gray: var(--line);             /* #E0CFB4 */
   --color-orange:     var(--color-tangerine);  /* #E8763A */
   --color-orange-hover: var(--color-ember);    /* #C85A24 */
-  --color-blue:       var(--color-sky);        /* #7A9AB8 */
+  --color-blue:       var(--color-teal);       /* #3E6B68 — sub-flows (name kept for existing modules) */
   --color-green:      var(--color-sage);       /* #8B9A5B */
   --color-red:        var(--color-plum);       /* #7A3B4A */
 
-  /* Semantic tokens for status indicators (replaces hardcoded #22c55e / #e63946) */
+  /* Semantic tokens for status indicators (replaces hardcoded #22c55e / #e63946).
+     Error is crimson, not plum — plum is the End node's "stop", not "something went wrong". */
   --color-success:    var(--color-sage);
-  --color-error:      var(--color-plum);
+  --color-error:      var(--danger);
   --color-warning:    var(--color-mustard);
 
   /* Fonts — Work Sans for both heading and body */
@@ -140,7 +141,7 @@ select {
 
 .btn-ghost {
   background: transparent;
-  color: var(--color-tangerine);
+  color: var(--accent-ink);
   padding: 6px 10px;
   border-radius: var(--radius-md);
   font-weight: 500;
@@ -149,6 +150,21 @@ select {
     background  var(--dur-fast) var(--ease-out);
 }
 .btn-ghost:hover {
-  color: var(--color-ember);
+  color: var(--accent-ink);
   background: var(--accent-soft);
+}
+
+/* Destructive — same shape as ghost, in its own red so it never shares a hue with the CTA. */
+.btn-danger {
+  background: transparent;
+  color: var(--danger-ink);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  transition:
+    color       var(--dur-fast) var(--ease-out),
+    background  var(--dur-fast) var(--ease-out);
+}
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
 }

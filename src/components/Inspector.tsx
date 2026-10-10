@@ -169,7 +169,7 @@ export default function Inspector() {
             ›
           </button>
           <h2 className={styles.heading}>{loop ? 'Feedback loop' : 'Connection'}</h2>
-          <button className="btn-ghost" onClick={handleDeleteEdge} title="Delete connection">
+          <button className="btn-danger" onClick={handleDeleteEdge} title="Delete connection">
             ✕ Delete
           </button>
         </div>
@@ -376,7 +376,7 @@ export default function Inspector() {
           ›
         </button>
         <h2 className={styles.heading}>{nodeTypeLabel}</h2>
-        <button className="btn-ghost" onClick={handleDelete} title="Delete node">
+        <button className="btn-danger" onClick={handleDelete} title="Delete node">
           ✕ Delete
         </button>
       </div>

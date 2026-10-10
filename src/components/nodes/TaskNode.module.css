@@ -1,6 +1,6 @@
 .node {
   background: var(--color-paper);
-  border: 1.5px solid var(--line);
+  border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-md);
   padding: 12px 14px;
   min-width: 180px;
@@ -21,7 +21,7 @@
 
 .selected {
   border-color: var(--color-orange) !important;
-  box-shadow: 0 0 0 3px rgba(232, 118, 58, 0.18), var(--shadow-md) !important;
+  box-shadow: var(--focus-ring), var(--shadow-md) !important;
   transform: translateY(-1px);
 }
 
@@ -44,7 +44,7 @@
 
 .role {
   font-size: 11px;
-  color: var(--color-mid-gray);
+  color: var(--fg-muted);
   margin-bottom: 8px;
   white-space: nowrap;
   overflow: hidden;
@@ -64,26 +64,40 @@
   letter-spacing: 0.04em;
   padding: 2px 7px;
   border-radius: var(--radius-pill);
+  border: 1px solid transparent;
   background: var(--line);
   color: var(--fg-muted);
 }
 
+/* Two badge families, so different kinds of metadata don't blur together:
+   - status chips (manual/auto, knowledge signals) — tinted fill, -ink text
+   - measure chips (durations) — outlined, no fill, mono figures
+   Orange is deliberately absent: on the canvas it means "selected / act here" only. */
 .badgeManual {
-  background: color-mix(in srgb, var(--color-orange) 14%, transparent);
-  color: var(--color-orange);
+  background: color-mix(in srgb, var(--color-sand) 60%, transparent);
+  color: var(--color-umber);
 }
 
 .badgeAuto {
-  background: color-mix(in srgb, var(--color-green) 14%, transparent);
-  color: var(--color-green);
+  background: color-mix(in srgb, var(--color-sage) 16%, transparent);
+  color: var(--success-ink);
+}
+
+.badgeMeasure {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .badgeKnowRag {
-  background: color-mix(in srgb, var(--color-green) 14%, transparent);
-  color: var(--color-green);
+  background: color-mix(in srgb, var(--color-sage) 16%, transparent);
+  color: var(--success-ink);
 }
 
 .badgeKnowGap {
-  background: color-mix(in srgb, var(--color-orange) 14%, transparent);
-  color: var(--color-orange);
+  background: color-mix(in srgb, var(--color-mustard) 16%, transparent);
+  color: var(--warning-ink);
 }

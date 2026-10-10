@@ -15,9 +15,9 @@ import type {
 import styles from './AnalysisPanel.module.css';
 
 const confidenceColor: Record<string, string> = {
-  high: 'var(--color-green)',
-  medium: 'var(--color-orange)',
-  low: 'var(--color-mid-gray)',
+  high: 'var(--success-ink)',
+  medium: 'var(--warning-ink)',
+  low: 'var(--fg-subtle)',
 };
 
 /** One tab per analysis level — the tab id doubles as the level id — plus the chat. */

@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(62, 42, 30, 0.45);
+  background: var(--scrim);
   z-index: 100;
   display: flex;
   justify-content: flex-end;
@@ -37,8 +37,8 @@
 }
 
 .header :global(.btn-ghost:hover) {
-  color: var(--color-ember);
-  background: rgba(200, 90, 36, 0.10);
+  color: var(--accent-ink);
+  background: var(--accent-tint);
 }
 
 .body {
@@ -129,7 +129,7 @@
 
 .idInput:focus {
   border-color: var(--color-orange);
-  box-shadow: 0 0 0 3px rgba(232, 118, 58, 0.18), var(--shadow-inset);
+  box-shadow: var(--focus-ring), var(--shadow-inset);
 }
 
 .hint {

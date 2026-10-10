@@ -13,8 +13,8 @@
 }
 
 .label[data-variant='guarded'] {
-  color: var(--color-mustard);
-  border: 1px solid color-mix(in srgb, var(--color-mustard) 40%, transparent);
+  color: var(--warning-ink);
+  border: 1px solid color-mix(in srgb, var(--color-mustard) 55%, transparent);
 }
 
 .label[data-variant='unguarded'] {

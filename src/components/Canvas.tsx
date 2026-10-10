@@ -42,11 +42,11 @@ const edgeTypes: EdgeTypes = {
   smart: SmartEdge,
 };
 
-// Literal hex rather than var(--color-mid-gray): React Flow renders markers into a <defs>
+// Literal hex rather than var(--edge): React Flow renders markers into a <defs>
 // block that isn't reliably inside the themed subtree, so a CSS custom property may not
-// resolve there. Matches --color-mid-gray → --fg-subtle (see theme.css).
+// resolve there. Keep in step with --edge (styles/tangerine/colors_and_type.css).
 const DEFAULT_EDGE_OPTIONS = {
-  markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#9A7E66' },
+  markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#8A6C54' },
 };
 
 export default function Canvas() {
@@ -212,12 +212,14 @@ export default function Canvas() {
           multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="var(--color-light-gray)" gap={20} size={1} />
+          <Background color="var(--line-strong)" gap={20} size={1.25} />
           <Controls />
           <MiniMap
-            nodeStrokeColor={(n) => n.type === 'flow' ? 'var(--color-blue)' : 'var(--color-orange)'}
-            nodeColor={(n) => n.type === 'flow' ? 'rgba(106,155,204,0.2)' : 'rgba(217,119,87,0.15)'}
-            maskColor="rgba(250,249,245,0.85)"
+            nodeStrokeColor={(n) => n.type === 'flow' ? 'var(--color-teal)' : 'var(--edge)'}
+            nodeColor={(n) => n.type === 'flow'
+              ? 'color-mix(in srgb, var(--color-teal) 20%, var(--color-paper))'
+              : 'var(--color-paper)'}
+            maskColor="color-mix(in srgb, var(--canvas) 85%, transparent)"
           />
         </ReactFlow>
       </ObstaclesContext.Provider>

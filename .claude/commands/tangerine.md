@@ -29,6 +29,7 @@ Apply these rules precisely whenever generating UI, copy, or code for Tangerine.
 --color-paper:     #FDF7EC;  /* cards, panels */
 --color-cream:     #FBF5EC;  /* alt panel / sunk */
 --color-sand:      #F4D9A8;  /* warm fill, highlights */
+--color-canvas:    #F0E5D3;  /* recessed diagram surface (--canvas) */
 
 /* Accent ramp */
 --color-tangerine: #E8763A;  /* PRIMARY accent */
@@ -38,13 +39,35 @@ Apply these rules precisely whenever generating UI, copy, or code for Tangerine.
 /* Ink */
 --color-clay:      #3E2A1E;  /* body text, warm near-black */
 --fg-muted:        #7A5A44;
---fg-subtle:       #9A7E66;
+--fg-subtle:       #83664F;  /* lightest text allowed — 4.95:1 on paper */
+
+/* Supporting hues — fills, borders, strokes. Too light for small text: see ink variants */
+--color-sage:      #8B9A5B;  /* success */
+--color-olive:     #6B7A3F;
+--color-sky:       #7A9AB8;  /* info (marketing only) */
+--color-teal:      #3E6B68;  /* cool counterpoint — sub-flows, info text */
+--color-mustard:   #C89A3C;  /* warning */
+--color-plum:      #7A3B4A;  /* "stop" — End nodes; no longer danger */
+--color-crimson:   #A8323E;  /* danger / destructive / error */
 
 /* Semantic */
---color-sage:      #8B9A5B;  /* success */
---color-sky:       #7A9AB8;  /* info */
---color-mustard:   #C89A3C;  /* warning */
---color-plum:      #7A3B4A;  /* danger */
+--accent-ink:      var(--color-brick);   /* accent-coloured text */
+--accent-soft:     #FBDDC2;              /* ghost hover fill */
+--accent-tint:     rgba(200, 90, 36, 0.10); /* active row / tab wash */
+--danger:          var(--color-crimson);
+
+/* Ink variants — text set in a hue. Each passes AA on paper and on its own 14–16% tint */
+--success-ink:     #5C6A30;
+--success-strong:  #5E6C33;  /* solid fill carrying paper text (5.4:1) */
+--warning-ink:     #86601A;
+--info-ink:        var(--color-teal);
+--danger-ink:      var(--color-crimson);
+
+/* Diagram & interaction */
+--canvas:          var(--color-canvas);
+--edge:            #8A6C54;  /* connectors — 3.9:1 on canvas */
+--focus-ring:      0 0 0 3px rgba(232, 118, 58, 0.22);
+--scrim:           rgba(62, 42, 30, 0.45);
 
 /* Borders */
 --line:            #E0CFB4;  /* default hairline */
@@ -55,6 +78,14 @@ Apply these rules precisely whenever generating UI, copy, or code for Tangerine.
 ```
 
 Never use pure `#000000` or `#FFFFFF`. Use Clay for ink, Paper for white surfaces.
+
+### Contrast rules
+
+- **AA floor.** Any text under 14px (labels, chips, captions) must reach 4.5:1 against what it sits on. `--fg-subtle` is the lightest text colour; nothing lighter is ever text.
+- **Ink variants.** Never set text in a raw supporting hue (`--color-sage`, `--color-mustard`, `--color-sky`, `--color-tangerine`): they sit at 2–3:1. Use the matching `-ink` token for the text and keep the raw hue for the fill, border, or stroke.
+- **Orange means "act here".** Tangerine is for the primary CTA, focus, hover, and selection — not for informational tags, labels, or status. Decorative brand marks (logo, palette icons) are fine.
+- **Destructive is crimson.** Delete / remove / reset use `--danger`, never tangerine, so they can't be mistaken for the primary action. Plum is reserved for "stop" (End nodes).
+- **Focus rings** use `--focus-ring`; overlays use `--scrim`. Don't inline the `rgba()`.
 
 ---
 
@@ -172,8 +203,13 @@ color: var(--color-clay);
 
 /* Ghost */
 background: transparent;
-color: var(--color-tangerine);
-/* hover: background accent-soft (#FBDDC2), color ember */
+color: var(--accent-ink);          /* raw tangerine text fails AA */
+/* hover: background accent-soft (#FBDDC2) */
+
+/* Destructive — ghost shape, its own hue */
+background: transparent;
+color: var(--danger-ink);
+/* hover: background color-mix(in srgb, var(--danger) 10%, transparent) */
 ```
 
 ### Cards
@@ -206,7 +242,7 @@ color: var(--color-clay);
 
 /* focus */
 border-color: var(--color-tangerine);
-box-shadow: 0 0 0 3px rgba(232, 118, 58, 0.18), var(--shadow-inset);
+box-shadow: var(--focus-ring), var(--shadow-inset);
 outline: none;
 ```
 
@@ -219,6 +255,23 @@ font-size: 12px;
 font-weight: 600;
 letter-spacing: 0.04em;
 ```
+
+Two families, so different kinds of metadata never blur together:
+
+| Family | Use | Style |
+|---|---|---|
+| **Status** | state or signal (Manual / Auto, RAG/KB, info-gap, ML, gut-feel) | tinted fill (hue at 14–16%), `-ink` text |
+| **Measure** | quantities (durations, counts) | no fill, `1px solid var(--line-strong)`, `--fg-muted` text, `--font-mono` |
+
+Status hues: success → sage fill / `--success-ink`; warning → mustard fill / `--warning-ink`; neutral state (e.g. Manual) → sand fill / `--color-umber`. No tangerine badges.
+
+### Diagrams / canvas
+
+- **Surfaces step down, cards step up.** The diagram sits on `--canvas` (darker than linen); cards and nodes sit on `--color-paper` with a `1.5px solid var(--line-strong)` border at rest. A dot grid in `--line-strong` at 20px gives the canvas texture.
+- **Edges** use `--edge` at 1.75px; selected edges switch to tangerine at 2.25px. Arrowheads must use the literal `#8A6C54` (SVG `<defs>` may not resolve custom properties) — keep it in step with `--edge`.
+- **Node-type hues:** task neutral (paper + line-strong), sub-flow `--color-teal` border with `--info-ink` text, decision neutral, Start `--success-strong` fill, End `--color-plum` fill. Paper text on both terminal fills.
+- **Branch labels:** Yes in `--success-ink`, No in `--color-plum`, 11px / 700.
+- **Loops:** guarded back edges dashed in `--warning-ink`; unguarded (modelling error) in `--danger`.
 
 ### Sticky header
 
@@ -289,7 +342,4 @@ All icons: 24×24, 1.75px stroke, `stroke-linecap="round"`, `stroke-linejoin="ro
 
 ## CSS import
 
-To use all tokens and semantic type classes in a project:
- see src/styles/tangerine for
- - colours_and_type.css
- - styles.css
+Import `src/styles/tangerine/styles.css` — the single entry point, which pulls in `colors_and_type.css` (all tokens and semantic type classes). Every token in the **Color tokens** block above must exist there with the same value; change both together.

@@ -11,7 +11,7 @@
 
 :root {
   /* ----- Raw color palette (Sunset & Clay) ----- */
-  --color-linen:       #F5EDE0;  /* canvas */
+  --color-linen:       #F5EDE0;  /* page background */
   --color-paper:       #FDF7EC;  /* elevated panel over linen */
   --color-cream:       #FBF5EC;  /* alt panel / sunk */
   --color-sand:        #F4D9A8;  /* warm fill, highlights */
@@ -30,6 +30,9 @@
   --color-sky:         #7A9AB8;  /* supporting (info adjacent) */
   --color-plum:        #7A3B4A;  /* supporting (danger adjacent) */
   --color-mustard:     #C89A3C;  /* supporting (warn adjacent) */
+  --color-teal:        #3E6B68;  /* cool counterpoint — sub-flows, info text (5.6:1 on paper) */
+  --color-crimson:     #A8323E;  /* destructive / error — red-leaning so it never reads as the CTA */
+  --color-canvas:      #F0E5D3;  /* recessed diagram surface, a step below linen */
 
   --color-white:       #FFFFFF;
 
@@ -42,7 +45,7 @@
 
   --fg:            var(--color-clay);
   --fg-muted:      #7A5A44;
-  --fg-subtle:     #9A7E66;
+  --fg-subtle:     #83664F;  /* darkened from #9A7E66 to pass AA (4.95:1 on paper, 4.54:1 on linen) */
   --fg-inverse:    var(--color-paper);
 
   --accent:        var(--color-tangerine);
@@ -50,6 +53,10 @@
   --accent-soft:   #FBDDC2;
   /* WCAG: Sunset (#E8763A) with dark text reads better than on cream; on-accent is warm-black for AA */
   --on-accent:     #1F1108;
+  /* Accent-coloured text. Raw tangerine is only 2.8:1 on paper — never set text in it. */
+  --accent-ink:    var(--color-brick);
+  /* Translucent accent wash for active/selected rows and hover fills. */
+  --accent-tint:   rgba(200, 90, 36, 0.10);
 
   --line:          #E0CFB4;
   --line-strong:   #C9B592;
@@ -58,7 +65,23 @@
   --success:       var(--color-sage);
   --info:          var(--color-sky);
   --warning:       var(--color-mustard);
-  --danger:        var(--color-plum);
+  --danger:        var(--color-crimson);
+
+  /* Ink variants — supporting hues are too light for small text, so text set in a hue
+     (badges, labels, chips) uses its -ink token. Each passes AA on paper and on its own 14–16% tint. */
+  --success-ink:   #5C6A30;
+  --success-strong:#5E6C33;  /* solid fill that carries paper text (5.4:1) */
+  --warning-ink:   #86601A;
+  --info-ink:      var(--color-teal);
+  --danger-ink:    var(--color-crimson);
+
+  /* ----- Diagram / canvas ----- */
+  --canvas:        var(--color-canvas);
+  --edge:          #8A6C54;  /* connectors — 3.9:1 on canvas */
+
+  /* ----- Interaction ----- */
+  --focus-ring:    0 0 0 3px rgba(232, 118, 58, 0.22);
+  --scrim:         rgba(62, 42, 30, 0.45);  /* behind dialogs and slide-overs */
 
   /* ----- Radii (Option B: 18px base, generous) ----- */
   --radius-xs: 8px;
@@ -248,11 +271,11 @@ pre {
 }
 
 a {
-  color: var(--accent);
-  text-decoration-color: color-mix(in oklab, var(--accent) 35%, transparent);
+  color: var(--accent-ink);
+  text-decoration-color: color-mix(in oklab, var(--accent) 45%, transparent);
   text-underline-offset: 3px;
 }
-a:hover { color: var(--accent-hover); text-decoration-color: var(--accent-hover); }
+a:hover { color: var(--color-umber); text-decoration-color: var(--accent-hover); }
 
 blockquote {
   font-family: var(--font-display);

@@ -30,7 +30,7 @@
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--color-paper);
-  color: var(--color-ember);
+  color: var(--accent-ink);
   font-family: var(--font-heading);
   font-size: 12px;
   font-weight: 600;
