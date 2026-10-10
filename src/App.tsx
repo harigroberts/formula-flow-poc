@@ -4,6 +4,7 @@ import { supabaseConfigured } from '@/lib/supabase';
 import { useSupabaseSync } from '@/lib/useSupabaseSync';
 import { useAnalysis } from '@/lib/useAnalysis';
 import { useChat } from '@/lib/useChat';
+import { usePlan } from '@/lib/usePlan';
 import Toolbar from '@/components/Toolbar';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Sidebar from '@/components/Sidebar';
@@ -11,6 +12,7 @@ import Canvas from '@/components/Canvas';
 import Inspector from '@/components/Inspector';
 import AnalysisPanel from '@/components/AnalysisPanel';
 import AnalysisDepthDialog from '@/components/AnalysisDepthDialog';
+import PlanWorkspace from '@/components/PlanWorkspace';
 import SettingsPanel from '@/components/SettingsPanel';
 import SyncPanel from '@/components/SyncPanel';
 import type { AnalysisDepth } from '@/types';
@@ -28,6 +30,7 @@ export default function App() {
   const [showDepthDialog, setShowDepthDialog] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPlan, setShowPlan] = useState(false);
 
   const [syncEnabled, setSyncEnabled] = useState(false);
   const [showSync, setShowSync] = useState(false);
@@ -46,6 +49,13 @@ export default function App() {
   // Here rather than in the panel, so the conversation survives closing and reopening it. The
   // sync ID is the project conversations are saved under — none while sync is off.
   const chat = useChat(analysedDoc, analysis, stage, analysisError, workflowId);
+  // The Plan workspace's session lives here for the same reason, saved under the same sync ID.
+  const plan = usePlan(analysedDoc, analysis, stage, analysisError, workflowId);
+
+  const openPlan = () => {
+    setShowAnalysis(false);
+    setShowPlan(true);
+  };
 
   const handleToggleSync = () => {
     if (syncEnabled) {
@@ -76,6 +86,8 @@ export default function App() {
           syncStatus={syncStatus}
           syncConfigured={supabaseConfigured}
           onOpenSync={() => setShowSync(true)}
+          onOpenPlan={openPlan}
+          planAvailable={plan.available}
         />
         <div className={styles.body}>
           <div className={styles.main}>
@@ -100,8 +112,12 @@ export default function App() {
             stage={stage}
             error={analysisError}
             chat={chat}
+            onOpenPlan={plan.available ? openPlan : undefined}
             onClose={() => setShowAnalysis(false)}
           />
+        )}
+        {showPlan && plan.available && (
+          <PlanWorkspace plan={plan} onClose={() => setShowPlan(false)} />
         )}
         {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
         {showSync && (

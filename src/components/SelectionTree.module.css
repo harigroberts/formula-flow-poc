@@ -1,0 +1,298 @@
+.tree {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--color-cream);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 6px;
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-clay);
+}
+
+.sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.unsent {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.hint {
+  padding: 0 16px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fg-subtle);
+  border-bottom: 1px solid var(--line);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 10px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---------------------------------------------------------------- groups */
+
+.group {
+  /* `overflow: hidden` (for the rounded corners) lets a flex item shrink below its content,
+     which squashed the groups to fit instead of letting the list scroll. */
+  flex-shrink: 0;
+  background: var(--color-paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.subgroup {
+  border-top: 1px solid var(--line);
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 8px 4px;
+}
+
+.group > .groupHead {
+  background: var(--accent-soft);
+}
+
+.caret {
+  width: 20px;
+  border: none;
+  background: none;
+  color: var(--fg-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.groupLabel {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-dark);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subgroup .groupLabel {
+  font-size: 12px;
+  color: var(--color-teal);
+}
+
+.groupCount {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-subtle);
+}
+
+.groupNote {
+  padding: 8px 14px 10px 34px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+.children {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------------- leaves */
+
+.checkbox {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--color-tangerine);
+  cursor: pointer;
+}
+
+.noCheck {
+  flex-shrink: 0;
+  width: 15px;
+  text-align: center;
+  color: var(--fg-subtle);
+}
+
+.leaf {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px 9px 28px;
+  border-top: 1px solid var(--line);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.leaf .checkbox,
+.leaf .noCheck {
+  margin-top: 2px;
+}
+
+.leafChecked {
+  background: color-mix(in srgb, var(--color-tangerine) 6%, var(--color-paper));
+}
+
+.leafDisabled {
+  opacity: 0.7;
+}
+
+.leafMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.leafTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.leafName {
+  min-width: 0;
+  font-family: var(--font-heading);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.chips {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.saving {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-muted);
+}
+
+.confidence {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inPlan {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-sage) 18%, transparent);
+  color: var(--success-ink);
+}
+
+.noGain {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  color: var(--fg-subtle);
+}
+
+.notesToggle {
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-subtle);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.notesToggle:hover {
+  border-color: var(--line-strong);
+  color: var(--accent-ink);
+}
+
+.notesToggleOn {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+
+.leafDetail {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.product {
+  font-size: 11px;
+  color: var(--color-teal);
+}
+
+.covered {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--warning-ink);
+}
+
+.notes {
+  width: 100%;
+  margin-top: 2px;
+  resize: vertical;
+  padding: 7px 9px;
+  background: var(--color-paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-dark);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.45;
+  outline: none;
+}
+
+.notes:focus {
+  border-color: var(--color-orange);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-orange) 18%, transparent);
+}
+
+.coveredMuted {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--fg-subtle);
+}

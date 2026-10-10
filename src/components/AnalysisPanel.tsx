@@ -341,6 +341,8 @@ interface AnalysisPanelProps {
   stage: AnalysisStage;
   error: string | null;
   chat: ChatController;
+  /** Opens the Plan workspace; absent until the analysis has finished. */
+  onOpenPlan?: () => void;
   onClose: () => void;
 }
 
@@ -349,6 +351,7 @@ export default function AnalysisPanel({
   stage,
   error,
   chat,
+  onOpenPlan,
   onClose,
 }: AnalysisPanelProps) {
   const [tab, setTab] = useState<Tab>('tasks');
@@ -381,9 +384,20 @@ export default function AnalysisPanel({
       <div className={styles.panel}>
         <div className={styles.header}>
           <h2 className={styles.heading}>Automation Analysis</h2>
-          <button className="btn-ghost" onClick={onClose}>
-            ✕
-          </button>
+          <span className={styles.headerActions}>
+            {onOpenPlan && (
+              <button
+                className="btn-primary"
+                onClick={onOpenPlan}
+                title="Choose what the customer wants built and turn it into a plan"
+              >
+                Build plan →
+              </button>
+            )}
+            <button className="btn-ghost" onClick={onClose}>
+              ✕
+            </button>
+          </span>
         </div>
 
         <div className={styles.tabs} role="tablist">

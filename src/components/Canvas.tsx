@@ -1,53 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
-  MarkerType,
   useNodesInitialized,
   useReactFlow,
-  type NodeTypes,
-  type EdgeTypes,
   type NodeMouseHandler,
 } from '@xyflow/react';
 import { useWorkflowStore } from '@/store/workflowStore';
-import TaskNode from './nodes/TaskNode';
-import FlowNode from './nodes/FlowNode';
-import DecisionNode from './nodes/DecisionNode';
-import StartNode from './nodes/StartNode';
-import EndNode from './nodes/EndNode';
-import LoopEdge from './edges/LoopEdge';
-import SmartEdge from './edges/SmartEdge';
 import { ObstaclesContext } from './edges/obstacles';
-import type { Rect } from '@/lib/edgeRouting';
-import { findLoops, findLoopByBackEdge } from '@/lib/cycles';
+import {
+  DEFAULT_EDGE_OPTIONS,
+  FIT_VIEW_OPTIONS,
+  MINIMAP_PROPS,
+  edgeTypes,
+  nodeTypes,
+} from './canvas/canvasConfig';
+import { useDecoratedEdges, useObstacleMap } from './canvas/useCanvasGeometry';
 import type { WFNodeData, FlowRefData } from '@/types';
 import styles from './Canvas.module.css';
-
-// maxZoom 1 keeps a sparse canvas at natural size instead of blowing the cards up to 2x,
-// which is React Flow's default fit ceiling.
-const FIT_VIEW_OPTIONS = { padding: 0.2, maxZoom: 1 };
-
-const nodeTypes: NodeTypes = {
-  task: TaskNode,
-  flow: FlowNode,
-  decision: DecisionNode,
-  start: StartNode,
-  end: EndNode,
-};
-
-const edgeTypes: EdgeTypes = {
-  loopback: LoopEdge,
-  smart: SmartEdge,
-};
-
-// Literal hex rather than var(--edge): React Flow renders markers into a <defs>
-// block that isn't reliably inside the themed subtree, so a CSS custom property may not
-// resolve there. Keep in step with --edge (styles/tangerine/colors_and_type.css).
-const DEFAULT_EDGE_OPTIONS = {
-  markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#8A6C54' },
-};
 
 export default function Canvas() {
   const {
@@ -69,54 +41,16 @@ export default function Canvas() {
   } = useWorkflowStore();
 
   const nodes = currentNodes();
-  const edgesRaw = currentEdges();
-
-  // Loop detection (Tarjan's SCC) only cares about node types and edge source/target, not
-  // about `doc` reference identity — which changes on every store write, including ones
-  // that touch a totally different flow (e.g. typing in the Inspector). Keying the memo on
-  // this topology string instead of on `doc` keeps findLoops from re-running on every
-  // keystroke; see the FlowNode `handleKey` precedent for the same technique.
-  const topoKey =
-    nodes.map((n) => `${n.id}:${n.type}`).join('|') +
-    '#' +
-    edgesRaw.map((e) => `${e.id}:${e.source}>${e.target}`).join('|');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const loops = useMemo(() => findLoops(doc, currentFlowId), [topoKey, currentFlowId]);
-
-  const edges = edgesRaw.map((e) => {
-    const loop = findLoopByBackEdge(loops, e.id);
-    if (!loop) return { ...e, type: 'smart' };
-    return { ...e, type: 'loopback', data: { ...e.data, loop: { guarded: loop.guarded } } };
-  });
-
-  // Obstacle rects for edge routing, keyed by node id so an edge can exclude its own
-  // source/target. Derived from measured node size, which React Flow writes back onto
-  // `doc.nodes` via onNodesChange('dimensions') — see the geometry-key precedent in the loop
-  // memo above for why this is a string key rather than a `doc` dependency. Recomputed on every
-  // position change, including mid-drag: `geometryKey` already changes on every drag frame (the
-  // dragged node's position is part of it), so gating this on `dragging` bought no savings — it
-  // only made the memo return `null` and drop every edge back to its plain, unrouted path for
-  // the duration of the drag, which read as a jarring style change rather than a live update.
-  const nodesInitialized = useNodesInitialized();
-  const geometryKey = nodes
-    .map((n) => `${n.id}:${Math.round(n.position.x)}:${Math.round(n.position.y)}:${n.measured?.width ?? 0}:${n.measured?.height ?? 0}`)
-    .join('|');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const obstacles = useMemo<Map<string, Rect> | null>(() => {
-    if (!nodesInitialized) return null;
-    const map = new Map<string, Rect>();
-    for (const n of nodes) {
-      if (!n.measured?.width || !n.measured?.height) continue;
-      map.set(n.id, { x: n.position.x, y: n.position.y, width: n.measured.width, height: n.measured.height });
-    }
-    return map;
-  }, [geometryKey, nodesInitialized]);
+  // Loop back edges render as `loopback`, the rest as `smart`; obstacles feed edge routing.
+  // Both are render-time only and shared with the read-only WorkflowViewer.
+  const edges = useDecoratedEdges(doc, currentFlowId, nodes, currentEdges());
+  const obstacles = useObstacleMap(nodes);
 
   // Fit the viewport once per canvas: on first paint and whenever we drill into or back out of
   // a flow. The `fitView` prop alone runs before the nodes have been measured, which leaves the
   // viewport at its default zoom of 1 — on a wide flow that reads as "far too zoomed in".
-  // `useNodesInitialized` (above) waits until every node has real dimensions to size the fit
-  // against — reused here rather than declared twice.
+  // `useNodesInitialized` waits until every node has real dimensions to size the fit against.
+  const nodesInitialized = useNodesInitialized();
   const { fitView } = useReactFlow();
   const fittedFor = useRef<string | null>(null);
 
@@ -214,13 +148,7 @@ export default function Canvas() {
         >
           <Background color="var(--line-strong)" gap={20} size={1.25} />
           <Controls />
-          <MiniMap
-            nodeStrokeColor={(n) => n.type === 'flow' ? 'var(--color-teal)' : 'var(--edge)'}
-            nodeColor={(n) => n.type === 'flow'
-              ? 'color-mix(in srgb, var(--color-teal) 20%, var(--color-paper))'
-              : 'var(--color-paper)'}
-            maskColor="color-mix(in srgb, var(--canvas) 85%, transparent)"
-          />
+          <MiniMap {...MINIMAP_PROPS} />
         </ReactFlow>
       </ObstaclesContext.Provider>
     </div>

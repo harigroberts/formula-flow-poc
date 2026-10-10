@@ -56,6 +56,11 @@
   color: var(--color-paper);
 }
 
+.actions :global(.btn-secondary:disabled) {
+  background: transparent;
+  color: var(--color-clay);
+}
+
 .syncDot {
   width: 8px;
   height: 8px;

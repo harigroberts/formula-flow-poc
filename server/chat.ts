@@ -31,8 +31,11 @@ const CHAT_MODEL = INTEGRATION_MODEL;
  * in the context, and chat latency is user-visible. Changing it invalidates the cached thread.
  */
 const CHAT_EFFORT = 'medium';
-/** A person reads the analysis and then replies — the gap between turns often exceeds 5 minutes. */
-const CHAT_CACHE: Anthropic.Beta.BetaCacheControlEphemeral = { type: 'ephemeral', ttl: '1h' };
+/**
+ * A person reads the analysis and then replies — the gap between turns often exceeds 5 minutes.
+ * Shared with the plan thread (`server/plan.ts`), which is laid out the same way.
+ */
+export const CHAT_CACHE: Anthropic.Beta.BetaCacheControlEphemeral = { type: 'ephemeral', ttl: '1h' };
 
 const SYSTEM: Anthropic.Beta.BetaTextBlockParam[] = [
   { type: 'text', text: SHARED_CONTEXT },
@@ -52,9 +55,9 @@ const BASE = {
 
 /**
  * The two context turns. `canonical()` sorts keys so the bytes don't depend on how the
- * client happened to build the object.
+ * client happened to build the object. The plan thread opens with the same two turns.
  */
-function workflowTurn(ctx: ChatContext): Anthropic.Beta.BetaMessageParam {
+export function workflowTurn(ctx: ChatContext): Anthropic.Beta.BetaMessageParam {
   return {
     role: 'user',
     content: [
@@ -67,7 +70,7 @@ function workflowTurn(ctx: ChatContext): Anthropic.Beta.BetaMessageParam {
   };
 }
 
-function analysisTurn(ctx: ChatContext): Anthropic.Beta.BetaMessageParam {
+export function analysisTurn(ctx: ChatContext): Anthropic.Beta.BetaMessageParam {
   return {
     role: 'assistant',
     content: [

@@ -118,6 +118,39 @@ export async function errorMessage(res: Response): Promise<string> {
   }
 }
 
+/**
+ * Reads a streamed newline-delimited JSON body (the chat and plan routes), passing each event
+ * to `onEvent` until it returns a value — that value resolves the promise. A network chunk can
+ * end mid-line, so the remainder is kept for the next one.
+ */
+export async function readNdjson<E, R>(
+  res: Response,
+  onEvent: (event: E) => R | undefined,
+): Promise<R> {
+  if (!res.ok || !res.body) throw new Error(await errorMessage(res));
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newline: number;
+    while ((newline = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newline).trim();
+      buffer = buffer.slice(newline + 1);
+      if (!line) continue;
+      const result = onEvent(JSON.parse(line) as E);
+      if (result !== undefined) return result;
+    }
+  }
+
+  throw new Error('The reply ended unexpectedly.');
+}
+
 async function post<T>(path: string, payload: unknown, fresh: boolean): Promise<Cacheable<T>> {
   const res = await fetch(fresh ? `${path}?fresh=1` : path, {
     method: 'POST',

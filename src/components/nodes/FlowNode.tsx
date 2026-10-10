@@ -1,10 +1,10 @@
 import { memo, useEffect, useMemo } from 'react';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
-import { useShallow } from 'zustand/react/shallow';
-import { useWorkflowStore } from '@/store/workflowStore';
 import { getFlowEntries } from '@/lib/entries';
 import { getFlowExits, type FlowExit } from '@/lib/exits';
 import type { FlowRefData } from '@/types';
+import { useDocSelector } from './viewDoc';
+import DiffBadge, { diffClass, diffOf } from './DiffBadge';
 import styles from './FlowNode.module.css';
 
 /** Rebuild `{ id, label }` pairs from the flat string array the store selector returns. */
@@ -17,19 +17,25 @@ function unflatten(flat: string[]): FlowExit[] {
 function FlowNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as FlowRefData;
 
-  // Select a flat array of strings, not objects: `useShallow` compares element-wise with
-  // Object.is, so the reference stays stable while the child flow's end nodes are unchanged.
-  // Returning freshly-built objects here would make every store write look like a change and
-  // trip React's "getSnapshot should be cached" loop.
-  const flatExits = useWorkflowStore(
-    useShallow((s) => getFlowExits(s.doc, d.childFlowId).flatMap((e) => [e.id, e.label])),
+  // Select a flat array of strings, not objects: `useShallow` (inside `useDocSelector`) compares
+  // element-wise with Object.is, so the reference stays stable while the child flow's end nodes
+  // are unchanged. Returning freshly-built objects here would make every store write look like a
+  // change and trip React's "getSnapshot should be cached" loop.
+  const flatExits = useDocSelector((doc) =>
+    getFlowExits(doc, d.childFlowId).flatMap((e) => [e.id, e.label]),
   );
-  const flatEntries = useWorkflowStore(
-    useShallow((s) => getFlowEntries(s.doc, d.childFlowId).flatMap((e) => [e.id, e.label])),
+  const flatEntries = useDocSelector((doc) =>
+    getFlowEntries(doc, d.childFlowId).flatMap((e) => [e.id, e.label]),
   );
+  const diff = diffOf(data);
 
-  const exits = useMemo(() => unflatten(flatExits), [flatExits]);
-  const entries = useMemo(() => unflatten(flatEntries), [flatEntries]);
+  // Keyed on the joined strings: inside a viewer the selector builds a new array every render.
+  const exitKey = flatExits.join('\u0000');
+  const entryKey = flatEntries.join('\u0000');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const exits = useMemo(() => unflatten(flatExits), [exitKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const entries = useMemo(() => unflatten(flatEntries), [entryKey]);
 
   // React Flow caches handle bounds per node; without this, edges detach or render from (0,0)
   // when an entry or exit is added or removed.
@@ -52,7 +58,8 @@ function FlowNode({ id, data, selected }: NodeProps) {
   const showFooter = showEntryLabels || showExitLabels;
 
   return (
-    <div className={`${styles.node} ${selected ? styles.selected : ''}`}>
+    <div className={`${styles.node} ${selected ? styles.selected : ''} ${diffClass(diff)}`}>
+      <DiffBadge diff={diff} />
       {!showEntryLabels && <Handle type="target" position={Position.Left} id={entries[0]?.id} />}
       <div className={styles.header}>
         <span className={styles.icon}>⚡</span>

@@ -15,6 +15,9 @@ interface ToolbarProps {
   syncStatus?: SyncStatus;
   syncConfigured?: boolean;
   onOpenSync?: () => void;
+  onOpenPlan?: () => void;
+  /** An analysis has finished, so there's something to plan from. */
+  planAvailable?: boolean;
 }
 
 export default function Toolbar({
@@ -26,6 +29,8 @@ export default function Toolbar({
   syncStatus = 'idle',
   syncConfigured = false,
   onOpenSync,
+  onOpenPlan,
+  planAvailable = false,
 }: ToolbarProps) {
   const { getDoc, loadDoc, currentFlow, clearCurrentFlow, goToFlow, setSelectedEdge } = useWorkflowStore();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -128,6 +133,18 @@ export default function Toolbar({
           title={`Analyse "${flow?.name ?? 'this flow'}" with Claude`}
         >
           {analysing ? 'Analysing…' : '✦ Analyse this flow'}
+        </button>
+        <button
+          className="btn-secondary"
+          onClick={onOpenPlan}
+          disabled={!planAvailable}
+          title={
+            planAvailable
+              ? 'Turn the analysis into what the customer has decided to build'
+              : 'Run an analysis first — the plan is built from its results'
+          }
+        >
+          ✦ Plan
         </button>
       </div>
       {importError && <div className={styles.error}>{importError}</div>}

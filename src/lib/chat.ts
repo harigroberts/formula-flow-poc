@@ -1,4 +1,4 @@
-import { errorMessage, graphPayload } from '@/lib/api';
+import { errorMessage, graphPayload, readNdjson } from '@/lib/api';
 import { orderSubFlows } from '@/lib/analysisRunner';
 import type {
   ChatContext,
@@ -54,30 +54,10 @@ export async function streamChat(
     body: JSON.stringify({ context, messages }),
     signal,
   });
-  if (!res.ok || !res.body) throw new Error(await errorMessage(res));
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  // One JSON event per line; a network chunk can end mid-line, so keep the remainder.
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let newline: number;
-    while ((newline = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, newline).trim();
-      buffer = buffer.slice(newline + 1);
-      if (!line) continue;
-
-      const event = JSON.parse(line) as ChatEvent;
-      if (event.type === 'text') onText(event.text);
-      else if (event.type === 'error') throw new Error(event.error);
-      else return event.usage;
-    }
-  }
-
-  throw new Error('The reply ended unexpectedly.');
+  return readNdjson<ChatEvent, ChatUsage>(res, (event) => {
+    if (event.type === 'text') onText(event.text);
+    else if (event.type === 'error') throw new Error(event.error);
+    else return event.usage;
+  });
 }

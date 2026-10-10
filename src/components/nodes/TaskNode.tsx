@@ -1,14 +1,14 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { TaskData } from '@/types';
-import { useWorkflowStore } from '@/store/workflowStore';
+import { useDocSelector } from './viewDoc';
+import DiffBadge, { diffClass, diffOf } from './DiffBadge';
 import styles from './TaskNode.module.css';
 
 function TaskNode({ data, selected }: NodeProps) {
   const d = data as unknown as TaskData;
-  const role = useWorkflowStore((s) =>
-    s.doc.personas.find((p) => p.id === d.personaId)?.role
-  );
+  const role = useDocSelector((doc) => doc.personas.find((p) => p.id === d.personaId)?.role);
+  const diff = diffOf(data);
 
   // Knowledge-access signal derived from inputAccessibility.
   const knowledge =
@@ -19,7 +19,8 @@ function TaskNode({ data, selected }: NodeProps) {
       : null;
 
   return (
-    <div className={`${styles.node} ${selected ? styles.selected : ''}`}>
+    <div className={`${styles.node} ${selected ? styles.selected : ''} ${diffClass(diff)}`}>
+      <DiffBadge diff={diff} />
       <Handle type="target" position={Position.Left} />
       <div className={styles.header}>
         <span className={styles.name}>{d.name || 'Untitled Task'}</span>

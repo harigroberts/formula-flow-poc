@@ -138,6 +138,12 @@ select {
   background: var(--color-clay);
   color: var(--color-paper);
 }
+.btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--color-clay);
+}
 
 .btn-ghost {
   background: transparent;

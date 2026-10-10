@@ -1,10 +1,12 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { DecisionData } from '@/types';
+import DiffBadge, { diffClass, diffOf } from './DiffBadge';
 import styles from './DecisionNode.module.css';
 
 function DecisionNode({ data, selected }: NodeProps) {
   const d = data as unknown as DecisionData;
+  const diff = diffOf(data);
 
   const badge =
     d.historicalDataExists && d.outcomeMeasured && d.outcomeDataSource
@@ -15,7 +17,9 @@ function DecisionNode({ data, selected }: NodeProps) {
 
   return (
     <div className={`${styles.wrapper} ${selected ? styles.selected : ''}`}>
-      <div className={styles.diamond} />
+      <DiffBadge diff={diff} side="left" />
+      {/* On the diamond rather than the square wrapper, so the outline follows its shape. */}
+      <div className={`${styles.diamond} ${diffClass(diff)}`} />
       <Handle type="target" position={Position.Left} />
       <Handle type="source" id="yes" position={Position.Top} />
       <Handle type="source" id="no" position={Position.Bottom} />

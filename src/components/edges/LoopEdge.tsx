@@ -3,6 +3,7 @@ import { BaseEdge, EdgeLabelRenderer, useStoreApi, type EdgeProps } from '@xyflo
 import { useWorkflowStore } from '@/store/workflowStore';
 import { edgePath } from '@/lib/edgeRouting';
 import { ObstaclesContext } from './obstacles';
+import { useInViewer } from '../nodes/viewDoc';
 import type { WFEdgeData } from '@/types';
 import styles from './LoopEdge.module.css';
 
@@ -35,13 +36,16 @@ function LoopEdge({
   // interaction stroke underneath, which only covers the path centerline.
   const store = useStoreApi();
   const setSelectedEdge = useWorkflowStore((s) => s.setSelectedEdge);
+  // A read-only viewer draws a doc that isn't in the store — there's nothing to inspect.
+  const inViewer = useInViewer();
   const handleLabelClick = useCallback(
     (event: React.MouseEvent) => {
       event.stopPropagation();
+      if (inViewer) return;
       store.getState().addSelectedEdges([id]);
       setSelectedEdge(id);
     },
-    [store, id, setSelectedEdge],
+    [store, id, setSelectedEdge, inViewer],
   );
 
   let path: string;

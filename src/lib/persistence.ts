@@ -167,12 +167,12 @@ function downloadBlob(content: string, filename: string, mime: string) {
   URL.revokeObjectURL(url);
 }
 
-export function exportJson(doc: WorkflowDoc) {
-  downloadBlob(JSON.stringify(doc, null, 2), 'workflow.json', 'application/json');
+export function exportJson(doc: WorkflowDoc, name = 'workflow') {
+  downloadBlob(JSON.stringify(doc, null, 2), `${name}.json`, 'application/json');
 }
 
-export function exportYaml(doc: WorkflowDoc) {
-  downloadBlob(yaml.dump(doc), 'workflow.yaml', 'text/yaml');
+export function exportYaml(doc: WorkflowDoc, name = 'workflow') {
+  downloadBlob(yaml.dump(doc), `${name}.yaml`, 'text/yaml');
 }
 
 export async function importFile(file: File): Promise<WorkflowDoc> {

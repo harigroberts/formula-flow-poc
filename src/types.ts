@@ -285,3 +285,128 @@ export type ChatEvent =
   | { type: 'text'; text: string }
   | { type: 'done'; stopReason: string | null; usage: ChatUsage }
   | { type: 'error'; error: string };
+
+/* ------------------------------------------------------------------ plan */
+
+/**
+ * The end-state workflow Claude proposes in the Plan workspace, as the `propose_end_state` tool
+ * input. Every proposal is complete (never a diff of the previous one), but an `unchanged` node
+ * only needs `id` / `flowId` / `type` — the rest is copied from the original by `toEndStateDoc()`.
+ */
+export type EndStateChange = 'unchanged' | 'modified' | 'new';
+
+export interface EndStateFlow {
+  id: string;
+  name: string;
+  description?: string;
+  parentFlowId: string | null;
+  change: EndStateChange;
+}
+
+export interface EndStateAutomation {
+  claudeProduct: string;
+  /** How the automation works, in a sentence or two. */
+  how: string;
+  /** Selection-tree leaf ids this node delivers (`task:…`, `subflow:…`, `strategic:…`). */
+  implements: string[];
+}
+
+export interface EndStateNode {
+  id: string;
+  flowId: string;
+  type: 'task' | 'flow' | 'decision' | 'start' | 'end';
+  change: EndStateChange;
+  name?: string;
+  description?: string;
+  /** Original node ids this node takes over from (a merge or a replacement). */
+  replacesNodeIds?: string[];
+  personaId?: string;
+  frequencyId?: string;
+  humanMinutesPerRun?: number;
+  isManual?: boolean;
+  tools?: string[];
+  childFlowId?: string;
+  automation?: EndStateAutomation;
+}
+
+export interface EndStateEdge {
+  id: string;
+  flowId: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+  label?: string;
+  branch?: 'yes' | 'no';
+  exit?: string;
+  entry?: string;
+  retryRatePct?: number;
+}
+
+export interface EndStateProposal {
+  title: string;
+  summary: string;
+  flows: EndStateFlow[];
+  nodes: EndStateNode[];
+  edges: EndStateEdge[];
+  /** Original nodes that no longer exist. Nodes on a flow that was dropped entirely count too. */
+  removedNodeIds: string[];
+  /** Minutes/month the whole end state saves against the original. */
+  estMonthlyTimeSaved?: number;
+}
+
+/**
+ * A plan thread's content blocks, in the API's own shape so a turn replays verbatim — which is
+ * what keeps the thread's prompt-cache prefix stable. Thinking blocks are never kept.
+ */
+export type PlanBlock =
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: EndStateProposal }
+  | { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean };
+
+export interface PlanTurn {
+  role: 'user' | 'assistant';
+  content: PlanBlock[];
+}
+
+/** One send and everything the server appended in reply — as the UI holds it and as it's saved. */
+export interface PlanExchange {
+  /** The turn as sent: the selection block, when there was one, then the typed text. */
+  user: PlanTurn;
+  /** What the user typed — the bubble. */
+  text: string;
+  /** Set when this turn carried a selection block. */
+  selectionSent?: { selected: number; notes: number };
+  /**
+   * Assistant turn, then — when it proposed an end state — the tool_result turn and the
+   * assistant's closing turn. Always ends on an assistant turn.
+   */
+  reply: PlanTurn[];
+  usage?: ChatUsage;
+  /** The reply was stopped or failed partway; what had arrived is kept. */
+  interrupted?: boolean;
+}
+
+/** Per selection-tree leaf: whether it's in scope, and what the user said about it. */
+export type SelectionState = Record<string, { checked: boolean; notes: string }>;
+
+export interface PlanSessionSummary {
+  id: string;
+  title: string;
+  /** The latest proposal's title, once one has landed. */
+  planTitle: string | null;
+  workflowHash: string;
+  updatedAt: string;
+}
+
+/** Streamed by `POST /api/plan`, one JSON object per line. */
+export type PlanEvent =
+  | { type: 'text'; text: string }
+  /** The model has started writing the end state; `nodes` is a rough count so far. */
+  | { type: 'drafting'; nodes: number }
+  /** The proposal failed validation and the model is fixing it. */
+  | { type: 'repairing'; errors: string[] }
+  /** Turns completed since the last `turns` event — appended to the history verbatim. */
+  | { type: 'turns'; turns: PlanTurn[] }
+  | { type: 'done'; stopReason: string | null; usage: ChatUsage }
+  | { type: 'error'; error: string };

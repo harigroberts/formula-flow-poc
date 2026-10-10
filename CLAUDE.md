@@ -1,6 +1,6 @@
 # Formula Flow — POC
 
-A React app for mapping company workflows as editable diagrams, then using Claude Haiku to identify automation and AI-assistance opportunities.
+A React app for mapping company workflows as editable diagrams, then using Claude Haiku to identify automation and AI-assistance opportunities — and, once the customer has decided what to build, turning that decision into a plan and an end-state workflow.
 
 ## Quick start
 
@@ -27,6 +27,7 @@ Browser (Vite/React)
   │                        └─ Anthropic API  →  claude-haiku-4-5  (level 1: per-task)
   │                                          →  claude-opus-5     (levels 2-3: sub-flow, strategic)
   ├─ /api/chat{,/prime}  →  Express proxy  →  Anthropic API  →  claude-opus-5 (chat about the analysis, streamed)
+  ├─ /api/plan{,/prime}  →  Express proxy  →  Anthropic API  →  claude-opus-5 (plan + end-state workflow, streamed, tool loop)
   └─ Supabase JS client  →  Supabase (eu-west-1, project xmqgxrspgtpamrwackdl)
                                  ├─ REST  →  workflows table (JSONB doc storage)
                                  └─ Realtime  →  postgres_changes on workflows
@@ -186,6 +187,26 @@ Task cards show a badge: **RAG/KB** (green) when `inputAccessibility === 'ask'`;
 
 Navigation is breadcrumb-based: entering a flow pushes it onto the breadcrumb stack; clicking a parent crumb pops back.
 
+**Plan workspace** — a full-screen overlay (Toolbar **Plan**, or **Build plan →** in the analysis panel) where the
+consultant records what the customer has decided to build. Three modes:
+- **Build** — saved plans rail, a chat on the left, and on the right the **recommendations tree**: every level-1
+  finding (grouped by flow), level-2 sub-flow verdict and level-3 initiative as a leaf to tick and annotate. Leaf ids
+  are `task:<nodeId>` (`#2`… for a node's further findings), `subflow:<flowId>`, `strategic:<index>`
+  (`lib/planSelection.ts`). Opus asks clarifying questions until it can build a valid plan, then writes the plan as
+  text and calls its one tool, `propose_end_state`, with the **end-state workflow**.
+- **End state** — that workflow, read-only, in the same node cards and edges as the canvas (`WorkflowViewer`).
+- **Compare** — the original on top, the end state below, both kept on the same flow.
+
+The end state is an `EndStateProposal` (`types.ts`): complete every time (never a diff of the previous proposal),
+kept nodes keep their original `id`/`flowId` and are marked `unchanged | modified | new`, an unchanged node carries
+only `id`/`flowId`/`type`/`change` (the rest is copied from the original), `replacesNodeIds` records merges, and
+`removedNodeIds` accounts for every dropped node (nodes on a dropped sub-flow go with it). `validateEndState()`
+(`lib/endState.ts`, shared by server and browser) checks all of that plus edge/handle conventions;
+`toEndStateDoc()` turns it into a renderable `WorkflowDoc` plus diff maps, laid out by `layoutEndState()`
+(`lib/endStateLayout.ts`) from the **original positions** — kept nodes stay put, a replacement takes the place of
+what it replaces, only genuinely new nodes are placed (next to their neighbours, nudged clear; a wholly new sub-flow
+gets a layered layout). The end state is view + export (JSON/YAML) only; it never touches the live canvas.
+
 ## Directory map
 
 ```
@@ -207,12 +228,26 @@ src/
     useAnalysis.ts      — hook owning the multi-level run (result, stage, error, analysedDoc); kept out of the store on purpose
     chat.ts             — buildChatContext (frozen per run), primeChat, streamChat (NDJSON reader) → /api/chat*
     useChat.ts          — hook owning the thread on screen + the project's saved conversations; lives in App, out of the store
+    plan.ts             — primePlan, streamPlan (NDJSON via readNdjson in api.ts) → /api/plan*
+    usePlan.ts          — hook owning the Plan workspace: session, tree selection, exchanges, proposals, saved plans; lives in App
+    planSelection.ts    — the recommendations tree (leaf ids, tri-state helpers) and the selection block sent with a turn
+    planSessions.ts     — plan_sessions CRUD (list / load / create / save), browser → Supabase
+    endState.ts         — validateEndState (server + browser), toEndStateDoc (renderable doc + diff maps), PROPOSE_TOOL
+    endStateLayout.ts   — layoutEndState: end-state positions from the original's, DOM-free/pure
     conversations.ts    — workflowHash + chat_conversations CRUD (list / load / create / saveMessages), browser → Supabase
     canonical.ts        — canonical(): the key-sorted form shared by server (cache key, chat prefix) and browser (workflow hash)
     supabase.ts         — Supabase client (null when VITE_SUPABASE_* vars absent; check supabaseConfigured before use)
     useSupabaseSync.ts  — sync hook: debounced writes, realtime subscription, echo prevention, localStorage persistence
   components/
     Canvas.tsx          — ReactFlow canvas, drag-drop, double-click drill-in
+    WorkflowViewer.tsx  — read-only canvas for a doc that isn't in the store (end state / analysed snapshot);
+                           own ReactFlowProvider, local breadcrumbs, node details card
+    PlanWorkspace.tsx   — the Plan overlay: Build / End state / Compare modes, export, full screen
+    PlanChat.tsx        — the plan conversation: bubbles, plan cards per proposal, composer ("Propose plan now")
+    SelectionTree.tsx   — the recommendations tree: tri-state groups, ticks, per-leaf notes, "in plan" chips
+    canvas/
+      canvasConfig.ts   — node/edge type maps, edge + fit + minimap options shared by Canvas and WorkflowViewer
+      useCanvasGeometry.ts — useDecoratedEdges (loop decoration) / useObstacleMap (edge routing), shared likewise
     Sidebar.tsx         — drag palette (Task, Sub-flow, Decision, Start, End)
     Inspector.tsx       — edit metadata of the selected node; collapses to a thin rail when nothing is selected
     Breadcrumbs.tsx     — flow navigation bar
@@ -230,6 +265,8 @@ src/
       StartNode.tsx      — pipeline/flow entry terminator
       EndNode.tsx        — pipeline/flow exit terminator
       TerminalNode.module.css — shared styles for Start and End nodes
+      viewDoc.ts         — ViewDocContext + useDocSelector: node cards read the viewer's doc, else the store
+      DiffBadge.tsx      — New / Changed / Removed / Replaced badge + product chip, from render-time `data.diff`
     edges/
       LoopEdge.tsx       — dashed, routed "loopback" edge type for feedback-loop back edges
       SmartEdge.tsx      — default "smart" edge type; right-angled path with radiused corners,
@@ -239,14 +276,16 @@ server/
   index.ts              — Express app; POST /api/analyze{,/subflow,/strategic}, GET /api/health
   analyze.ts            — the three Anthropic SDK calls, prompt caching, JSON parsing, LEVELS descriptor
   chat.ts               — the chat thread: prompt-cache layout, prime call, streamed turns
+  plan.ts               — the plan thread: chat's layout plus the propose_end_state tool, server-side tool loop
   cache.ts              — analysis result cache: cache-key hashing (via src/lib/canonical.ts) + Supabase read/write
-  schemas.ts            — JSON schemas constraining the level-2 / level-3 structured outputs
+  schemas.ts            — JSON schemas constraining the level-2 / level-3 structured outputs, + the end-state tool input
   prompts/
     shared.ts           — SHARED_CONTEXT: node vocabulary, registries, product catalogue (all three levels)
     task.ts             — TASK_PROMPT (level 1, per-node)
     subflow.ts          — SUBFLOW_PROMPT (level 2, one sub-flow as an integrated whole)
     strategic.ts        — STRATEGIC_PROMPT (level 3, the whole workflow as one system)
     chat.ts             — CHAT_PROMPT (conversation about the three-level analysis)
+    plan.ts             — PLAN_PROMPT (gather what's needed, then propose the plan + end state)
 ```
 
 ## Conventions
@@ -372,6 +411,29 @@ server/
   reads the prompt cache. The row is inserted on a thread's first completed (or partially-kept) reply with an id
   chosen up front, later turns update `messages` only, and saves are chained so an update never overtakes its
   insert. A partial reply is saved even if the user switches conversation mid-stream.
+- **Plan thread** — `server/plan.ts` lays the thread out exactly like the chat (system ◆, workflow ◆, analysis ◆,
+  moving tail ◆ — reusing `workflowTurn()`/`analysisTurn()`/`CHAT_CACHE` from `server/chat.ts`), with the
+  `propose_end_state` tool rendered ahead of the system — which is why it can't share the chat's cache entry. Effort
+  is `high` and pinned in `BASE` with everything else, for the same reason as the chat. The **tool loop runs on the
+  server inside one request**: a proposal is validated, the tool_result goes back (an error list to fix — at most 2
+  repairs — or "shown"), and the model closes its turn; within that loop the assistant content goes back verbatim,
+  thinking included. The client therefore only ever sends a history that ends on its own user message and stores
+  the finished turns it's handed (`turns` events) **without thinking blocks**, replaying them as-is — Opus accepts a
+  closed tool call replayed without its thinking. `tool_use.input` is `canonical()`-ised on replay, because a
+  jsonb round trip reorders its keys. The tool is **not `strict`**: strict tool schemas allow at most 16 union-typed
+  parameters and the end state has more optional fields than that, so optional fields are simply omitted (the model
+  may still write explicit nulls — `normalizeProposal()` strips them) and `validateEndState()` is the guarantee.
+- **Selection block** — a user turn starts with the recommendations-tree selection (`selectionBlock()`, canonical
+  JSON, only ticked or annotated leaves) whenever it changed since the last one sent, and always on the first turn;
+  the prompt treats each block as replacing the previous one. Ticks and notes save on their own (debounced, queued
+  behind any save in flight) once a session has a row.
+- **Read-only viewer** — `WorkflowViewer` renders through the same `canvasConfig` / `useCanvasGeometry` as `Canvas`,
+  so a plan's workflows are one visual language with the canvas. Node cards read registries and child flows via
+  `useDocSelector()` (`nodes/viewDoc.ts`) — the viewer's doc inside a `ViewDocContext`, the store otherwise. Diff
+  badges are stamped onto node `data.diff` at render time only, like the loop decoration — never on a stored doc.
+  Each (doc, diff, flow) gets its own keyed `ReactFlowProvider`; `zoomOnDoubleClick` is off there because
+  non-draggable nodes lack React Flow's `nopan` class, so the pane's zoom would otherwise swallow the double-click
+  that opens a sub-flow.
 - **CSS Modules** — each component has a co-located `.module.css` file; global utility classes (`.btn-primary`, `.btn-secondary`, `.btn-ghost`) are in `theme.css`.
 - **Supabase sync** — opt-in via "Sync off/on" toggle in the Toolbar. The hook (`useSupabaseSync`) debounces writes by 800 ms and uses a per-tab `sessionId` (in `sessionStorage`) to suppress echo updates. The workflow UUID is persisted in `localStorage('ff_workflow_id')` so the browser reconnects on refresh. JSON/YAML export is unaffected by sync state.
 - **Supabase DB** — project `formula_flow_poc` (ID `xmqgxrspgtpamrwackdl`, region `eu-west-1`). Two tables, both
@@ -387,6 +449,12 @@ server/
     the thread is built on), `messages JSONB` (`ChatMessage[]`), timestamps; `updated_at` is bumped by
     `trg_chat_conversations_updated_at` (the same `set_updated_at()` as `workflows`). Indexed on
     `(workflow_id, updated_at desc)`. No realtime. Unlike `analysis_cache` this is user data — don't truncate it.
+  - `plan_sessions` — same shape and rules as `chat_conversations` (browser-assigned `id`, `workflow_id` → `workflows.id`
+    **on delete cascade**, `workflow_hash`, `title`, `context`, `updated_at` trigger, `(workflow_id, updated_at desc)`
+    index, `anon_all`), plus `plan_title TEXT` (latest proposal's title, for the rail), `source_doc JSONB` (the full
+    analysed `WorkflowDoc` — `context.workflow` has no positions, and both the Compare view and the end-state layout
+    need them), `selection JSONB` (`SelectionState`) and `exchanges JSONB` (`PlanExchange[]`). Staleness works as for
+    chats: read-only once its hash differs from the current analysis's workflow, end states still viewable. User data.
 
 ## Analysis API contract
 
@@ -533,6 +601,19 @@ caching** above):
   aborts generation. Uses `CHAT_MODEL` (= `INTEGRATION_MODEL`) at `effort: 'medium'` with adaptive thinking
   and server-side refusal fallback (`fallbacks: 'default'`).
 
+## Plan API contract
+
+The Plan workspace's thread. Both routes take the same `context` as the chat (`buildChatContext()`), re-sent
+unchanged every turn:
+
+- **`POST /api/plan/prime`** — `{ context }` → `{ ok: true }`. A `max_tokens: 0` call caching tools + system + workflow.
+- **`POST /api/plan`** — `{ context, messages: PlanTurn[] }`. `messages` alternates starting and ending with `user`,
+  and every `tool_use` must be answered by a `tool_result` at the start of the next turn (400 otherwise). Streams
+  `application/x-ndjson`, one `PlanEvent` per line: `text` deltas; `drafting { nodes }` while the end state is being
+  written; `repairing { errors }` when a proposal failed validation; `turns { turns }` with each finished model call's
+  turns to append verbatim (assistant, plus the tool_result turn when it proposed); then `done { stopReason, usage }`
+  (summed over the loop) or `error`. Every reply's turns end on an assistant turn, including one cut short.
+
 ## Future stages
 
 1. ~~**Supabase persistence**~~ — **Done.** Opt-in cloud sync via `useSupabaseSync`; real-time collaborative editing via shared UUID; `workflows` table in Supabase.
@@ -543,5 +624,8 @@ caching** above):
 6. ~~**Chat about the analysis**~~ — **Done.** A Chat tab beside the three levels streams a conversation
    with Opus over the analysed workflow and its results, laid out as a prompt-cached thread so every turn
    after the first reads the workflow and the analysis from cache.
-7. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
-8. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.
+7. ~~**Plan workspace**~~ — **Done.** Tick and annotate recommendations, describe the customer's decision, let Opus
+   ask what it needs, then get the plan as text plus an end-state workflow viewable on its own or against the
+   original; saved per project like chats.
+8. **Org chart & personas** — attach job titles, personas, and emails to flow owners; enable workflow handover between team members via email.
+9. **Value-flow analysis** — annotate where business value is created/destroyed and surface highest-ROI automation targets.

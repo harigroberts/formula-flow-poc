@@ -3,7 +3,8 @@ import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import { LEVELS } from './analyze';
 import { primeChat, streamChat } from './chat';
-import type { ChatContext, ChatTurn } from '../src/types';
+import { primePlan, streamPlan } from './plan';
+import type { ChatContext, ChatTurn, PlanBlock, PlanTurn } from '../src/types';
 import {
   cacheConfigured,
   computeCacheKey,
@@ -131,6 +132,75 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
   await streamChat(ctx, history, res);
+});
+
+/* ------------------------------------------------------------------ plan */
+
+function isBlock(b: PlanBlock): boolean {
+  switch (b?.type) {
+    case 'text':
+      return typeof b.text === 'string' && b.text.trim().length > 0;
+    case 'tool_use':
+      return typeof b.id === 'string' && typeof b.name === 'string' && !!b.input && typeof b.input === 'object';
+    case 'tool_result':
+      return typeof b.tool_use_id === 'string' && typeof b.content === 'string';
+    default:
+      return false;
+  }
+}
+
+/**
+ * The plan thread must alternate, starting and ending with the user, and every tool call must
+ * be answered at the start of the next turn — the server closes each tool loop before a reply
+ * ends, so a well-formed history never has one left open.
+ */
+function planHistoryOf(body: unknown): PlanTurn[] | null {
+  const messages = (body as { messages?: unknown } | undefined)?.messages;
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length % 2 === 0) return null;
+  const turns = messages as PlanTurn[];
+  const valid = turns.every((t, i) => {
+    if (t?.role !== (i % 2 === 0 ? 'user' : 'assistant')) return false;
+    if (!Array.isArray(t.content) || t.content.length === 0 || !t.content.every(isBlock)) return false;
+    const calls = t.content.filter((b) => b.type === 'tool_use').map((b) => (b as { id: string }).id);
+    const answered = (turns[i + 1]?.content ?? [])
+      .filter((b) => b.type === 'tool_result')
+      .map((b) => (b as { tool_use_id: string }).tool_use_id);
+    if (t.role === 'assistant') return calls.every((id) => answered.includes(id));
+    return calls.length === 0;
+  });
+  return valid ? turns : null;
+}
+
+// Like chat, nothing here goes through `analysis_cache` — only Anthropic's prompt cache, which
+// `server/plan.ts` lays the thread out for.
+
+// Writes the system, tool and workflow prefix to the prompt cache before the first message.
+app.post('/api/plan/prime', async (req, res) => {
+  if (!requireApiKey(res)) return;
+  const ctx = chatContextOf(req.body);
+  if (!ctx) {
+    res.status(400).json({ error: 'Missing plan context.' });
+    return;
+  }
+  try {
+    await primePlan(ctx);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[plan:prime]', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Plan prime failed' });
+  }
+});
+
+// One streamed reply — questions, or a plan plus its end-state workflow — as NDJSON.
+app.post('/api/plan', async (req, res) => {
+  if (!requireApiKey(res)) return;
+  const ctx = chatContextOf(req.body);
+  const history = planHistoryOf(req.body);
+  if (!ctx || !history) {
+    res.status(400).json({ error: 'Invalid plan request.' });
+    return;
+  }
+  await streamPlan(ctx, history, res);
 });
 
 app.get('/api/health', (_req, res) => {

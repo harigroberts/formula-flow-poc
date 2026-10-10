@@ -1,0 +1,83 @@
+/* Diff badges on the read-only views of the Plan workspace. Never shown on the editable canvas.
+   The badge is positioned against React Flow's node wrapper, which is already absolute. */
+
+/* Removed / replaced work on the original side of Compare fades back so the survivors read. */
+.host_removed,
+.host_replaced {
+  opacity: 0.5;
+  filter: grayscale(0.7);
+}
+
+.host_new {
+  outline: 2px solid color-mix(in srgb, var(--success-strong) 70%, transparent);
+  outline-offset: 3px;
+}
+
+.host_modified {
+  outline: 2px dashed color-mix(in srgb, var(--color-mustard) 80%, transparent);
+  outline-offset: 3px;
+}
+
+.corner {
+  position: absolute;
+  top: -11px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  pointer-events: none;
+}
+
+/* A decision's top edge carries its "Yes" label; the diamond leaves the top-left corner free. */
+.left {
+  top: 2px;
+  right: auto;
+  left: -10px;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.badge,
+.product {
+  font-family: var(--font-heading);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  box-shadow: var(--shadow-xs);
+}
+
+.new {
+  background: var(--success-strong);
+  color: var(--color-paper);
+}
+
+.modified {
+  background: var(--color-mustard);
+  color: var(--color-clay);
+}
+
+.removed {
+  background: var(--danger);
+  color: var(--color-paper);
+}
+
+.replaced {
+  background: var(--color-umber);
+  color: var(--color-paper);
+}
+
+.product {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  background: var(--color-paper);
+  color: var(--color-teal);
+  border: 1px solid color-mix(in srgb, var(--color-teal) 40%, transparent);
+}

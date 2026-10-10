@@ -1,0 +1,122 @@
+/* Plan-specific additions; the bubbles, composer and banners come from ChatTab.module.css. */
+
+.selectionChip {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+.selectionNotice {
+  font-size: 11.5px;
+  color: var(--accent-ink);
+}
+
+.drafting {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--fg-muted);
+}
+
+.draftingDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-teal);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% { opacity: 0.25; }
+}
+
+.repairNote {
+  align-self: flex-start;
+  font-size: 11.5px;
+  color: var(--fg-subtle);
+  font-style: italic;
+  padding-left: 4px;
+}
+
+/* ------------------------------------------------------------------ card */
+
+.card {
+  align-self: flex-start;
+  width: min(520px, 90%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--color-paper);
+  border: 1.5px solid var(--color-teal);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.cardOld {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.cardHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cardKicker {
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-teal);
+}
+
+.cardTitle {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.cardSummary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.cardStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.statNew {
+  color: var(--success-ink);
+  font-weight: 600;
+}
+
+.statChanged {
+  color: var(--warning-ink);
+  font-weight: 600;
+}
+
+.statRemoved {
+  color: var(--danger-ink);
+  font-weight: 600;
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
