@@ -5,8 +5,9 @@ import { PROPOSE_TOOL, toEndStateDoc } from '@/lib/endState';
 import { primePlan, streamPlan } from '@/lib/plan';
 import {
   SELECTION_PREFIX,
-  allLeaves,
-  buildSelectionTree,
+  allNodes,
+  applyCheck,
+  buildPlanTree,
   selectionBlock,
   selectionCounts,
   selectionPayload,
@@ -261,7 +262,7 @@ export function usePlan(
   const readOnly = session?.hash != null && session.hash !== currentHash;
 
   const tree = useMemo(
-    () => (session ? buildSelectionTree(session.sourceDoc, session.context.analysis) : []),
+    () => (session ? buildPlanTree(session.sourceDoc, session.context.analysis) : null),
     [session],
   );
   const payload = useMemo(() => selectionPayload(tree, selection), [tree, selection]);
@@ -282,7 +283,10 @@ export function usePlan(
     () => new Set(endState?.proposal.nodes.flatMap((n) => n.automation?.implements ?? []) ?? []),
     [endState],
   );
-  const leafNames = useMemo(() => new Map(allLeaves(tree).map((l) => [l.id, l.label])), [tree]);
+  const leafNames = useMemo(
+    () => new Map(tree ? allNodes(tree).map((n) => [n.id, n.label]) : []),
+    [tree],
+  );
 
   // A new proposal landing takes over the view.
   const proposalCount = proposals.length;
@@ -351,13 +355,13 @@ export function usePlan(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection]);
 
-  const setChecked = useCallback((ids: string[], checked: boolean) => {
-    setSelection((sel) => {
-      const next = { ...sel };
-      for (const id of ids) next[id] = { notes: sel[id]?.notes ?? '', checked };
-      return next;
-    });
-  }, []);
+  /** Ticks or clears a row and everything under it; sub-flows above it re-derive. */
+  const toggle = useCallback(
+    (id: string, checked: boolean) => {
+      if (tree) setSelection((sel) => applyCheck(tree, sel, id, checked));
+    },
+    [tree],
+  );
 
   const setNotes = useCallback((id: string, notes: string) => {
     setSelection((sel) => ({ ...sel, [id]: { checked: sel[id]?.checked ?? false, notes } }));
@@ -518,7 +522,7 @@ export function usePlan(
 
     tree,
     selection,
-    setChecked,
+    toggle,
     setNotes,
     clearSelection,
     /** Ticked / annotated leaves in the current selection. */

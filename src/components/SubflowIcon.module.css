@@ -1,0 +1,16 @@
+/* Sub-flows are teal everywhere (Tangerine node-type hues): outline in the ink, infill a pale
+   tint of the same hue — mixed with paper so it reads the same on tinted headings and cards. */
+.icon {
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: -0.15em;
+  color: var(--info-ink);
+}
+
+.icon path {
+  fill: color-mix(in srgb, currentColor 30%, var(--color-paper));
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

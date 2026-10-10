@@ -1,8 +1,9 @@
 import styles from './Sidebar.module.css';
 import { useWorkflowStore } from '@/store/workflowStore';
 import { canGroupNodes, canUngroupFlow } from '@/lib/grouping';
+import SubflowIcon from './SubflowIcon';
 
-function DraggableItem({ label, type, icon, iconColor, iconClass }: { label: string; type: string; icon: string; iconColor?: string; iconClass?: string }) {
+function DraggableItem({ label, type, icon, iconColor, iconClass }: { label: string; type: string; icon: React.ReactNode; iconColor?: string; iconClass?: string }) {
   const onDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/flow-node-type', type);
     e.dataTransfer.effectAllowed = 'move';
@@ -33,7 +34,7 @@ export default function Sidebar() {
         <h3 className={styles.heading}>Add to canvas</h3>
         <p className={styles.hint}>Drag onto the canvas</p>
         <DraggableItem label="Task" type="task" icon="✦" iconClass={styles.iconXL} />
-        <DraggableItem label="Sub-flow" type="flow" icon="⚡" />
+        <DraggableItem label="Sub-flow" type="flow" icon={<SubflowIcon size={20} />} />
         <DraggableItem label="Decision" type="decision" icon="◆" iconClass={styles.iconLarge} />
         <DraggableItem label="Start" type="start" icon="▶" iconColor="var(--success-strong)" iconClass={styles.iconLarge} />
         <DraggableItem label="End" type="end" icon="■" iconColor="var(--color-red)" iconClass={styles.iconLarge} />

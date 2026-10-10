@@ -33,12 +33,6 @@
   margin-bottom: 4px;
 }
 
-.icon {
-  font-size: 15px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
 .name {
   font-family: var(--font-heading);
   font-size: 13px;

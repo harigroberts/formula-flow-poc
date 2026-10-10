@@ -51,11 +51,11 @@
   gap: 10px;
 }
 
-/* ---------------------------------------------------------------- groups */
+/* ------------------------------------------------------- top-level boxes */
 
 .group {
   /* `overflow: hidden` (for the rounded corners) lets a flex item shrink below its content,
-     which squashed the groups to fit instead of letting the list scroll. */
+     which squashed the boxes to fit instead of letting the list scroll. */
   flex-shrink: 0;
   background: var(--color-paper);
   border: 1px solid var(--line);
@@ -64,28 +64,12 @@
   overflow: hidden;
 }
 
-.subgroup {
-  border-top: 1px solid var(--line);
-}
-
 .groupHead {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 8px 10px 8px 4px;
-}
-
-.group > .groupHead {
   background: var(--accent-soft);
-}
-
-.caret {
-  width: 20px;
-  border: none;
-  background: none;
-  color: var(--fg-muted);
-  font-size: 11px;
-  cursor: pointer;
 }
 
 .groupLabel {
@@ -105,11 +89,6 @@
   text-overflow: ellipsis;
 }
 
-.subgroup .groupLabel {
-  font-size: 12px;
-  color: var(--color-teal);
-}
-
 .groupCount {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -124,52 +103,128 @@
   font-style: italic;
 }
 
+/* ------------------------------------------------------------------ tree */
+
+.list,
 .children {
-  display: flex;
-  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-/* ---------------------------------------------------------------- leaves */
+/* Rows are separated by a hairline. */
+.item {
+  border-top: 1px solid var(--line);
+}
+
+/* A sub-flow is a card of its own, nested inside its parent: the same paper card and tinted
+   heading as the Strategy and workflow boxes, so where each one starts and ends is plain. */
+.subflowCard {
+  margin: 8px 8px 8px 10px;
+  background: var(--color-paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+/* The card's own margin separates it from what follows — no hairline needed. */
+.subflowCard + .item {
+  border-top: none;
+}
+
+.subflowHead {
+  background: var(--accent-soft);
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 9px 12px 9px 4px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.rowChecked {
+  background: color-mix(in srgb, var(--color-tangerine) 6%, var(--color-paper));
+}
+
+.expander,
+.expanderSpacer {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+/* A + / − square. The bars are pseudo-elements rather than text, so they sit dead centre
+   whatever the font. */
+.expander {
+  position: relative;
+  padding: 0;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper);
+  color: var(--color-clay);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.expander::before,
+.expander::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.expander::before {
+  width: 10px;
+  height: 2px;
+}
+
+.expander::after {
+  width: 2px;
+  height: 10px;
+}
+
+/* Open shows −: drop the vertical bar. */
+.expander[aria-expanded='true']::after {
+  display: none;
+}
+
+.expander:hover {
+  border-color: var(--color-tangerine);
+  color: var(--accent-ink);
+}
+
+.expander:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
 
 .checkbox {
   flex-shrink: 0;
   width: 15px;
   height: 15px;
-  margin: 0;
+  margin: 2px 0 0;
   accent-color: var(--color-tangerine);
   cursor: pointer;
 }
 
-.noCheck {
-  flex-shrink: 0;
-  width: 15px;
-  text-align: center;
-  color: var(--fg-subtle);
+.groupHead .checkbox {
+  margin-top: 0;
 }
 
-.leaf {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 9px 12px 9px 28px;
-  border-top: 1px solid var(--line);
-  transition: background var(--dur-fast) var(--ease-out);
+/* Rows align their first line to the 20px expander. */
+.row .checkbox {
+  margin-top: 3px;
 }
 
-.leaf .checkbox,
-.leaf .noCheck {
-  margin-top: 2px;
-}
-
-.leafChecked {
-  background: color-mix(in srgb, var(--color-tangerine) 6%, var(--color-paper));
-}
-
-.leafDisabled {
-  opacity: 0.7;
-}
-
-.leafMain {
+.main {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -177,19 +232,35 @@
   gap: 4px;
 }
 
-.leafTop {
+.top {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
 }
 
-.leafName {
+.name {
   min-width: 0;
   font-family: var(--font-heading);
   font-size: 12.5px;
   font-weight: 600;
   color: var(--color-dark);
+}
+
+/* Sub-flows read as they do on the canvas: teal, with the flow card's bolt. */
+.nameSubflow {
+  color: var(--info-ink);
+}
+
+.glyph {
+  display: inline-block;
+  width: 20px;
+  font-size: 11px;
+  color: var(--fg-subtle);
+}
+
+.nameSubflow .glyph {
+  color: var(--color-teal);
 }
 
 .chips {
@@ -223,10 +294,15 @@
   color: var(--success-ink);
 }
 
+/* A "neutral state" status chip — sand fill, umber text — per the Tangerine badge families. */
 .noGain {
-  flex-shrink: 0;
-  font-size: 10.5px;
-  color: var(--fg-subtle);
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-sand) 60%, transparent);
+  color: var(--color-umber);
 }
 
 .notesToggle {
@@ -250,7 +326,7 @@
   background: var(--accent-soft);
 }
 
-.leafDetail {
+.detail {
   font-size: 12px;
   line-height: 1.45;
   color: var(--fg-muted);
@@ -271,6 +347,12 @@
   color: var(--warning-ink);
 }
 
+.coveredMuted {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--fg-subtle);
+}
+
 .notes {
   width: 100%;
   margin-top: 2px;
@@ -289,10 +371,4 @@
 .notes:focus {
   border-color: var(--color-orange);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-orange) 18%, transparent);
-}
-
-.coveredMuted {
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: var(--fg-subtle);
 }

@@ -14,10 +14,14 @@ export const PLAN_PROMPT = `# Planning what to build
 ## The selection block
 A user message may begin with a text block that starts "Selection from the recommendations tree". It is JSON listing recommendations by leaf id:
 - \`task:<nodeId>\` — the level-1 finding for that node (\`task:<nodeId>#2\` for its second finding)
-- \`subflow:<flowId>\` — the level-2 recommendation for that sub-flow
+- \`subflow:<flowId>\` — a whole sub-flow
 - \`strategic:<index>\` — a level-3 initiative, by its position in \`strategic.initiatives\`
 
 Each listed item has \`selected\` (true means the customer wants it built) and may have \`notes\` — the consultant's changes or constraints for that item, which override the analysis where they conflict. Items not listed are out of scope. Each selection block replaces the previous one in full; a message without one means the selection has not changed.
+
+The consultant picks from a tree shaped like the workflow, where ticking a sub-flow ticks everything inside it. So:
+- **A selected sub-flow** means the customer wants that whole sub-flow delivered, nested sub-flows included — every finding inside it is listed as selected too, and that is not a conflict. If its level-2 analysis has \`improvesOnTaskLevel: true\`, plan its integrated recommendation in place of the task findings it supersedes, unless the notes say otherwise; if not, plan the task findings. Say which you assumed.
+- **A sub-flow that is not selected but has selected findings inside it** is only partly in scope: plan just those findings, at task level.
 
 The consultant may also refer to recommendations in prose ("the billing one", "skip the CRM idea"). Treat that the same as the tree, and when the prose and the tree disagree, ask which they mean.
 
@@ -26,7 +30,7 @@ Turn the selection and what the consultant tells you into an implementation plan
 
 ### 1. Make sure you can build a valid plan
 Before proposing anything, check that you know:
-- **Scope conflicts** — selected items that overlap: a sub-flow recommendation selected together with the task findings it supersedes (\`supersedesNodeIds\`), or an initiative that overlaps a sub-flow recommendation. Which version do they want?
+- **Scope conflicts** — a selected initiative that overlaps selected sub-flows or findings (its \`supersedes\`). Which version do they want?
 - **Systems** — the tools named on the affected tasks, and whether Claude can be given API or MCP access to them.
 - **Human checkpoints** — where a person must stay in the loop, especially at decisions marked irreversible or hard to reverse, or with a high cost of error.
 - **Ownership** — which persona owns each automated step and handles its exceptions.

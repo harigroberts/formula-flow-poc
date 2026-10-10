@@ -5,6 +5,7 @@ import { getFlowExits, type FlowExit } from '@/lib/exits';
 import type { FlowRefData } from '@/types';
 import { useDocSelector } from './viewDoc';
 import DiffBadge, { diffClass, diffOf } from './DiffBadge';
+import SubflowIcon from '../SubflowIcon';
 import styles from './FlowNode.module.css';
 
 /** Rebuild `{ id, label }` pairs from the flat string array the store selector returns. */
@@ -62,7 +63,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
       <DiffBadge diff={diff} />
       {!showEntryLabels && <Handle type="target" position={Position.Left} id={entries[0]?.id} />}
       <div className={styles.header}>
-        <span className={styles.icon}>⚡</span>
+        <SubflowIcon size={16} />
         <span className={styles.name}>{d.name || 'Untitled Flow'}</span>
       </div>
       {d.description && <div className={styles.desc}>{d.description}</div>}

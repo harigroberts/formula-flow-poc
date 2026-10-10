@@ -189,10 +189,13 @@ Navigation is breadcrumb-based: entering a flow pushes it onto the breadcrumb st
 
 **Plan workspace** — a full-screen overlay (Toolbar **Plan**, or **Build plan →** in the analysis panel) where the
 consultant records what the customer has decided to build. Three modes:
-- **Build** — saved plans rail, a chat on the left, and on the right the **recommendations tree**: every level-1
-  finding (grouped by flow), level-2 sub-flow verdict and level-3 initiative as a leaf to tick and annotate. Leaf ids
-  are `task:<nodeId>` (`#2`… for a node's further findings), `subflow:<flowId>`, `strategic:<index>`
-  (`lib/planSelection.ts`). Opus asks clarifying questions until it can build a valid plan, then writes the plan as
+- **Build** — saved plans rail, a chat on the left, and on the right the **recommendations tree**
+  (`lib/planSelection.ts`): the level-3 initiatives in a **Strategy** box on top, and below it the **workflow as a
+  tree** — the root flow, then each flow's level-1 task/decision findings and its sub-flows (carrying their level-2
+  verdict), nested to any depth, in canvas order (x, then y). Every row can be ticked and annotated. Ticking a row
+  ticks everything under it; a sub-flow counts as ticked only while everything inside it is (`applyCheck()` — the
+  usual tri-state tree). Ids are `task:<nodeId>` (`#2`… for a node's further findings), `subflow:<flowId>`,
+  `strategic:<index>`. Opus asks clarifying questions until it can build a valid plan, then writes the plan as
   text and calls its one tool, `propose_end_state`, with the **end-state workflow**.
 - **End state** — that workflow, read-only, in the same node cards and edges as the canvas (`WorkflowViewer`).
 - **Compare** — the original on top, the end state below, both kept on the same flow.
@@ -230,7 +233,7 @@ src/
     useChat.ts          — hook owning the thread on screen + the project's saved conversations; lives in App, out of the store
     plan.ts             — primePlan, streamPlan (NDJSON via readNdjson in api.ts) → /api/plan*
     usePlan.ts          — hook owning the Plan workspace: session, tree selection, exchanges, proposals, saved plans; lives in App
-    planSelection.ts    — the recommendations tree (leaf ids, tri-state helpers) and the selection block sent with a turn
+    planSelection.ts    — buildPlanTree (strategy box + workflow tree), applyCheck cascade, the selection block sent with a turn
     planSessions.ts     — plan_sessions CRUD (list / load / create / save), browser → Supabase
     endState.ts         — validateEndState (server + browser), toEndStateDoc (renderable doc + diff maps), PROPOSE_TOOL
     endStateLayout.ts   — layoutEndState: end-state positions from the original's, DOM-free/pure
@@ -244,7 +247,9 @@ src/
                            own ReactFlowProvider, local breadcrumbs, node details card
     PlanWorkspace.tsx   — the Plan overlay: Build / End state / Compare modes, export, full screen
     PlanChat.tsx        — the plan conversation: bubbles, plan cards per proposal, composer ("Propose plan now")
-    SelectionTree.tsx   — the recommendations tree: tri-state groups, ticks, per-leaf notes, "in plan" chips
+    SubflowIcon.tsx     — the sub-flow mark: a two-tone teal bolt (outline in the sub-flow ink, pale tint infill),
+                           shared by FlowNode, the Sidebar palette and the recommendations tree
+    SelectionTree.tsx   — the recommendations tree: Strategy box + recursive workflow tree, cascading ticks, notes, "in plan" chips
     canvas/
       canvasConfig.ts   — node/edge type maps, edge + fit + minimap options shared by Canvas and WorkflowViewer
       useCanvasGeometry.ts — useDecoratedEdges (loop decoration) / useObstacleMap (edge routing), shared likewise
@@ -424,8 +429,14 @@ server/
   parameters and the end state has more optional fields than that, so optional fields are simply omitted (the model
   may still write explicit nulls — `normalizeProposal()` strips them) and `validateEndState()` is the guarantee.
 - **Selection block** — a user turn starts with the recommendations-tree selection (`selectionBlock()`, canonical
-  JSON, only ticked or annotated leaves) whenever it changed since the last one sent, and always on the first turn;
-  the prompt treats each block as replacing the previous one. Ticks and notes save on their own (debounced, queued
+  JSON, only ticked or annotated rows) whenever it changed since the last one sent, and always on the first turn;
+  the prompt treats each block as replacing the previous one. A sub-flow is `selected: true` only when ticked in full,
+  which the prompt reads as "deliver the whole sub-flow": its integrated level-2 recommendation where that improves on
+  the task level, else its task findings, with the assumption stated. A partly ticked sub-flow shows only through its
+  ticked findings and is planned at task level. The tree is hand-rolled on the app's own styles rather than a library
+  tree — no component library is in use, and a tree this size doesn't need one's keyboard model. Each sub-flow is a
+  card nested in its parent, with a heading on the same tint as the Strategy/workflow headers, so where it starts and
+  ends is plain; expand/collapse is a 20px +/− square whose bars are CSS pseudo-elements, so they stay centred. Ticks and notes save on their own (debounced, queued
   behind any save in flight) once a session has a row.
 - **Read-only viewer** — `WorkflowViewer` renders through the same `canvasConfig` / `useCanvasGeometry` as `Canvas`,
   so a plan's workflows are one visual language with the canvas. Node cards read registries and child flows via
