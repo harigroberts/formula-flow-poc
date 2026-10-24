@@ -1,0 +1,4 @@
+{
+  "$comment": "Which workflow the app opens with. Must be an id from workflowPresets in src/workflows/index.ts. A ?workflow=<id> URL parameter overrides this for one tab.",
+  "defaultWorkflow": "dalcour-maclaren-land-property"
+}

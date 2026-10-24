@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import type { NodeChange, EdgeChange, Connection } from '@xyflow/react';
 import type { WFNode, WFEdge, WFEdgeData, Flow, WorkflowDoc, WFNodeData, TaskData, FlowRefData, DecisionData, TerminalData, FrequencyCategory, Persona, Department } from '@/types';
-import { seedDoc } from '@/lib/seed';
+import { defaultWorkflow } from '@/workflows';
 import { normalizeDoc } from '@/lib/persistence';
 import { canGroupNodes, buildGroupedFlow, canUngroupFlow, buildUngroupedFlow, groupableNodeIds } from '@/lib/grouping';
 import { collectFlowIds } from '@/lib/api';
@@ -123,10 +123,12 @@ function removeNodes(doc: WorkflowDoc, nodeIds: string[]): WorkflowDoc {
   return pruneDoc(doc, nodeIds, doomedFlowIds(doc, nodeIds));
 }
 
+const initialDoc = defaultWorkflow().doc;
+
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
-  doc: seedDoc,
-  currentFlowId: seedDoc.rootFlowId,
-  breadcrumbs: [{ flowId: seedDoc.rootFlowId, name: seedDoc.flows.find(f => f.id === seedDoc.rootFlowId)?.name ?? 'Root' }],
+  doc: initialDoc,
+  currentFlowId: initialDoc.rootFlowId,
+  breadcrumbs: [{ flowId: initialDoc.rootFlowId, name: initialDoc.flows.find(f => f.id === initialDoc.rootFlowId)?.name ?? 'Root' }],
   selectedNodeId: null,
   selectedEdgeId: null,
 

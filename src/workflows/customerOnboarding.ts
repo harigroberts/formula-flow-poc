@@ -1,6 +1,6 @@
 import type { WorkflowDoc } from '@/types';
 
-export const seedDoc: WorkflowDoc = {
+export const customerOnboarding: WorkflowDoc = {
   version: 1,
   rootFlowId: 'flow-root',
   flows: [
