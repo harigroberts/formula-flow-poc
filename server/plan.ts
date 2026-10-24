@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { Response } from 'express';
-import { client, INTEGRATION_MODEL, logUsage } from './analyze';
+import { client, INTEGRATION_FALLBACK, INTEGRATION_MODEL, INTEGRATION_THINKING, integrationEffort, logUsage } from './analyze';
 import { CHAT_CACHE, analysisTurn, workflowTurn } from './chat';
 import { canonical } from '../src/lib/canonical';
 import {
@@ -67,12 +67,11 @@ const SYSTEM: Anthropic.Beta.BetaTextBlockParam[] = [
 
 const BASE = {
   model: PLAN_MODEL,
-  thinking: { type: 'adaptive' },
-  output_config: { effort: PLAN_EFFORT },
+  ...INTEGRATION_THINKING,
+  output_config: integrationEffort(PLAN_EFFORT),
   system: SYSTEM,
   tools: [TOOL],
-  betas: ['server-side-fallback-2026-07-01'],
-  fallbacks: 'default',
+  ...INTEGRATION_FALLBACK,
 } satisfies Omit<Anthropic.Beta.Messages.MessageCreateParamsNonStreaming, 'max_tokens' | 'messages'>;
 
 /**

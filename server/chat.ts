@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { Response } from 'express';
-import { client, INTEGRATION_MODEL, logUsage } from './analyze';
+import { client, INTEGRATION_FALLBACK, INTEGRATION_MODEL, INTEGRATION_THINKING, integrationEffort, logUsage } from './analyze';
 import { canonical } from '../src/lib/canonical';
 import { SHARED_CONTEXT } from './prompts/shared';
 import { CHAT_PROMPT } from './prompts/chat';
@@ -44,13 +44,12 @@ const SYSTEM: Anthropic.Beta.BetaTextBlockParam[] = [
 
 const BASE = {
   model: CHAT_MODEL,
-  thinking: { type: 'adaptive' },
-  output_config: { effort: CHAT_EFFORT },
+  ...INTEGRATION_THINKING,
+  output_config: integrationEffort(CHAT_EFFORT),
   system: SYSTEM,
   // On a safety-classifier decline, the API re-runs the turn on a fallback model inside the
   // same call. That turn misses the cache (it's per-model), which is fine for a rare event.
-  betas: ['server-side-fallback-2026-07-01'],
-  fallbacks: 'default',
+  ...INTEGRATION_FALLBACK,
 } satisfies Omit<Anthropic.Beta.Messages.MessageCreateParamsNonStreaming, 'max_tokens' | 'messages'>;
 
 /**

@@ -10,7 +10,17 @@ npm install
 npm run dev                   # starts Vite (5173) + Express API (8787) concurrently
 ```
 
-Open http://localhost:5173. The app loads a seeded "Customer Onboarding" workflow.
+Open http://localhost:5173. The app opens with the workflow named by `defaultWorkflow` in
+`workflows.config.json` — one of the presets in `src/workflows/index.ts`:
+
+| id | Workflow |
+|---|---|
+| `customer-onboarding` | Customer Onboarding (ACME Ltd) — the original example |
+| `dalcour-maclaren-land-property` | Land & Property (Dalcour Maclaren) — land access, voluntary acquisition and compulsory acquisition for an infrastructure scheme |
+
+`?workflow=<id>` in the URL overrides the config for that tab (e.g.
+http://localhost:5173/?workflow=customer-onboarding). With Cloud Sync on and a stored sync ID, the synced
+doc replaces the preset once it loads.
 
 To enable cloud sync, also add to `.env`:
 ```
@@ -218,8 +228,11 @@ src/
   theme.css             — Anthropic brand CSS custom properties + base styles
   store/
     workflowStore.ts    — Zustand store; single source of truth for the whole doc
+  workflows/
+    index.ts            — workflowPresets registry + defaultWorkflow() (URL param → workflows.config.json → first preset)
+    customerOnboarding.ts — preset: Customer Onboarding (ACME Ltd)
+    dalcourMaclarenLandProperty.ts — preset: Dalcour Maclaren Land & Property scheme (3 sub-flows; shared tasks on the root)
   lib/
-    seed.ts             — seed WorkflowDoc (Customer Onboarding example)
     persistence.ts      — exportJson, exportYaml, importFile, normalizeDoc
     cycles.ts           — findLoops / findAllLoops: derives feedback loops (Tarjan's SCC) from the graph
     entries.ts          — getFlowEntries: a sub-flow's named entries, derived from its `start` nodes
@@ -345,6 +358,10 @@ server/
   neighbour — a raw grid step only ever changes one axis, so the run already shares the other one;
   fixing up just one point left a stale, un-snapped cell center further back that string-pull
   could no longer merge across.
+- **Workflow presets** — each preset is a plain `WorkflowDoc` in its own file under `src/workflows/`; add one by
+  appending `{ id, label, doc }` to `workflowPresets` and point `workflows.config.json` at its `id` to open with it.
+  A node lives on exactly one canvas, so work shared by several sub-flows goes once on the parent flow (where it
+  happens in the lifecycle) and the sub-flows take its outputs as `inputs` — don't copy the task into each sub-flow.
 - **Org-wide assumptions** — frequency counts and personas live on the doc and are edited in the Assumptions slide-over; tasks reference them by id (`frequencyId` / `personaId`), never by free text.
 - **Models** — two, both declared at the top of `server/analyze.ts`: `TASK_MODEL` (`claude-haiku-4-5`) for the
   high-volume per-node pass, `INTEGRATION_MODEL` (`claude-opus-5`) for the two integrative passes, which run with

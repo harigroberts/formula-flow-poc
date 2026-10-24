@@ -11,8 +11,27 @@ export const client = new Anthropic();
 
 /** Level 1 — high volume, node-by-node. Cheap and fast. */
 const TASK_MODEL = 'claude-haiku-4-5';
+/**
+ * DEBUG: run levels 2 & 3, the chat and the plan on Haiku as well — cheap and fast while
+ * debugging. Set to `false` to put them back on Opus 5.
+ */
+const DEBUG_ALL_HAIKU = true;
 /** Levels 2 & 3 — integrative reasoning over a whole graph. Worth the stronger model. */
-export const INTEGRATION_MODEL = 'claude-opus-5';
+export const INTEGRATION_MODEL = DEBUG_ALL_HAIKU ? TASK_MODEL : 'claude-opus-5';
+if (DEBUG_ALL_HAIKU) console.warn(`[models] DEBUG_ALL_HAIKU is on — analysis, chat and plan all run on ${TASK_MODEL}`);
+
+/*
+ * The Opus-only request params. Haiku 4.5 rejects adaptive thinking and `effort` with a 400, and
+ * the server-side refusal fallback is for the Opus/Fable safety classifiers, so on Haiku all
+ * three are left out (no thinking at all) and these spread to nothing.
+ */
+export const INTEGRATION_THINKING = DEBUG_ALL_HAIKU ? {} : { thinking: { type: 'adaptive' as const } };
+export function integrationEffort(effort: 'medium' | 'high') {
+  return DEBUG_ALL_HAIKU ? {} : { effort };
+}
+export const INTEGRATION_FALLBACK = DEBUG_ALL_HAIKU
+  ? {}
+  : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const };
 
 /**
  * Two cache breakpoints: the shared context is identical across every level, so the
@@ -110,9 +129,9 @@ async function callIntegrationModel(
   const stream = client.messages.stream({
     model: INTEGRATION_MODEL,
     max_tokens: 32000,
-    thinking: { type: 'adaptive' },
+    ...INTEGRATION_THINKING,
     output_config: {
-      effort: 'high',
+      ...integrationEffort('high'),
       format: { type: 'json_schema', schema },
     },
     system: systemBlocks(levelPrompt),
@@ -137,11 +156,15 @@ async function callIntegrationModel(
   return textOf(response.content);
 }
 
-/** Level 1 — per-node findings across the whole document. */
+/**
+ * Level 1 — per-node findings across the whole document. One finding per task/decision, so
+ * the reply grows with the workflow: a 40-node doc runs past 8K tokens. Streamed for the same
+ * reason as levels 2 & 3 — a non-streamed request this large risks an HTTP timeout.
+ */
 export async function analyzeTasks(payload: unknown): Promise<AnalysisResult> {
-  const response = await client.messages.create({
+  const stream = client.messages.stream({
     model: TASK_MODEL,
-    max_tokens: 8192,
+    max_tokens: 32000,
     system: systemBlocks(TASK_PROMPT),
     messages: [
       {
@@ -151,7 +174,15 @@ export async function analyzeTasks(payload: unknown): Promise<AnalysisResult> {
     ],
   });
 
+  const response = await stream.finalMessage();
   logUsage('tasks', response.usage);
+
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error('tasks analysis was truncated — the response exceeded max_tokens.');
+  }
+  if (response.stop_reason === 'refusal') {
+    throw new Error('tasks analysis was declined by the model.');
+  }
 
   return parseJson<AnalysisResult>(
     textOf(response.content),
